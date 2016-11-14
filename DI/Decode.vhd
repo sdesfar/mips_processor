@@ -36,6 +36,7 @@ entity Decode is
   port (
     clk         : in  std_logic;
     rst         : in  std_logic;
+    stall_req   : in  std_logic;
     instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
     pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     ra          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -136,7 +137,7 @@ begin  -- architecture rtl
       rb           <= std_logic_vector(to_unsigned(0, DATA_WIDTH));
       decode_error <= '0';
     else
-      if rising_edge(clk) then
+      if stall_req = '0' and rising_edge(clk) then
         if (op_code = op_rtype) then
           ra           <= rs;
           rb           <= rt;

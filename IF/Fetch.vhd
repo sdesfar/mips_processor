@@ -35,6 +35,7 @@ entity Fetch is
   port (
     clk         : in  std_logic;
     rst         : in  std_logic;
+    stall_req   : in  std_logic;
     pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     instruction : out std_logic_vector(DATA_WIDTH - 1 downto 0)
     );
@@ -57,7 +58,7 @@ begin  -- architecture rtl
     );
   process(rst, clk)
   begin
-    if rst = '0' and rising_edge(clk) then
+    if rst = '0' and stall_req = '0' and rising_edge(clk) then
       instruction <= l1c_data;
     end if;
   end process;

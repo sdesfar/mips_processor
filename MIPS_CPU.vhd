@@ -59,6 +59,7 @@ architecture rtl of MIPS_CPU is
     port (
       clk         : in  std_logic;
       rst         : in  std_logic;
+      stall_req   : in  std_logic;
       pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
       instruction : out std_logic_vector(DATA_WIDTH - 1 downto 0)
       );
@@ -68,6 +69,7 @@ architecture rtl of MIPS_CPU is
     port (
       clk         : in  std_logic;
       rst         : in  std_logic;
+      stall_req   : in  std_logic;
       instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
       pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
       ra          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -107,6 +109,7 @@ begin  -- architecture rtl
     port map (
       clk         => clk,
       rst         => rst,
+      stall_req   => '0',
       pc          => current_pc,
       instruction => fetched_instruction
       );
@@ -115,6 +118,7 @@ begin  -- architecture rtl
     port map (
       clk         => clk,
       rst         => rst,
+      stall_req   => '0',
       instruction => fetched_instruction,
       pc          => current_pc,
       ra          => ra,
