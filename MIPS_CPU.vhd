@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-14
+-- Last update: 2016-11-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -22,13 +22,16 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
+use work.cpu_defs.all;
+
 -------------------------------------------------------------------------------
 
 entity MIPS_CPU is
 
   generic (
-    ADDR_WIDTH : integer := 32;
-    DATA_WIDTH : integer := 32
+    ADDR_WIDTH   : integer := 32;
+    DATA_WIDTH   : integer := 32;
+    NB_REGISTERS : integer := 32
     );
 
   port (
@@ -65,16 +68,25 @@ architecture rtl of MIPS_CPU is
       );
   end component Fetch;
 
-  component Decode
+  component Decode is
+    generic (
+      ADDR_WIDTH   : integer;
+      DATA_WIDTH   : integer;
+      NB_REGISTERS : positive);
     port (
       clk         : in  std_logic;
       rst         : in  std_logic;
       stall_req   : in  std_logic;
       instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
       pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      alu_op      : out alu_op_type;
       ra          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      rb          : out std_logic_vector(DATA_WIDTH - 1 downto 0)
-      );
+      rb          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      rwritei     : out natural range 0 to NB_REGISTERS;
+      jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      jump_op     : out jump_type;
+      mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      mem_op      : out memory_op_type);
   end component Decode;
 
   -----------------------------------------------------------------------------
@@ -83,10 +95,16 @@ architecture rtl of MIPS_CPU is
   signal current_pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal jump_target         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal alu_op              : alu_op_type;
   signal ra                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal rb                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal rwritei             : natural range 0 to NB_REGISTERS;
   signal stall_pc            : std_logic;
   signal jump_pc             : std_logic;
+  signal decode_jump_target  : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal decode_jump_op      : jump_type;
+  signal decode_mem_data     : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal decode_mem_op       : memory_op_type;
 
 begin  -- architecture rtl
 
@@ -115,15 +133,24 @@ begin  -- architecture rtl
       );
 
   di : Decode
+    generic map (
+      ADDR_WIDTH   => ADDR_WIDTH,
+      DATA_WIDTH   => DATA_WIDTH,
+      NB_REGISTERS => NB_REGISTERS)
     port map (
       clk         => clk,
       rst         => rst,
       stall_req   => '0',
       instruction => fetched_instruction,
       pc          => current_pc,
+      alu_op      => alu_op,
       ra          => ra,
-      rb          => rb
-      );
+      rb          => rb,
+      rwritei     => rwritei,
+      jump_target => decode_jump_target,
+      jump_op     => decode_jump_op,
+      mem_data    => decode_mem_data,
+      mem_op      => decode_mem_op);
 
   stall_pc <= '0';
   jump_pc  <= '0';
