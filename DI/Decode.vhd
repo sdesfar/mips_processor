@@ -44,7 +44,8 @@ entity Decode is
     alu_op      : out alu_op_type;
     ra          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     rb          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    rwritei     : out natural range 0 to NB_REGISTERS;
+    rwrite_en   : out std_logic;
+    rwritei     : out natural range 0 to NB_REGISTERS - 1;
     jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     jump_op     : out jump_type;
     mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -161,7 +162,8 @@ architecture rtl of Decode is
     signal alu_op       : out alu_op_type;
     signal ra           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     signal rb           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    signal rwritei      : out natural range 0 to NB_REGISTERS;
+    signal rwrite_en    : out std_logic;
+    signal rwritei      : out natural range 0 to NB_REGISTERS - 1;
     signal jump_target  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     signal jump_op      : out jump_type;
     signal mem_op       : out memory_op_type) is
@@ -170,7 +172,7 @@ architecture rtl of Decode is
     mem_op       <= none;
     alu_op       <= substract;
     ra           <= rs;
-    rwritei      <= NB_REGISTERS;
+    rwrite_en    <= '0';
     if (op_code = op_beq) then
       rb      <= rt;
       jump_op <= zero;
@@ -198,7 +200,8 @@ architecture rtl of Decode is
     signal alu_op       : out alu_op_type;
     signal ra           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     signal rb           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    signal rwritei      : out natural range 0 to NB_REGISTERS;
+    signal rwrite_en    : out std_logic;
+    signal rwritei      : out natural range 0 to NB_REGISTERS - 1;
     signal jump_target  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     signal jump_op      : out jump_type;
     signal mem_op       : out memory_op_type) is
@@ -209,6 +212,7 @@ architecture rtl of Decode is
     ra                                       <= rs;
     rb(DATA_WIDTH - 1 downto DATA_WIDTH / 2) <= std_logic_vector(to_unsigned(0, DATA_WIDTH / 2));
     rb(DATA_WIDTH / 2 -1 downto 0)           <= std_logic_vector(immediate);
+    rwrite_en                                <= '1';
     rwritei                                  <= to_integer(unsigned(instruction(15 downto 11)));
     if (op_code = op_addi) then
       alu_op <= add;
@@ -238,7 +242,8 @@ architecture rtl of Decode is
     signal alu_op       : out alu_op_type;
     signal ra           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     signal rb           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    signal rwritei      : out natural range 0 to NB_REGISTERS;
+    signal rwrite_en    : out std_logic;
+    signal rwritei      : out natural range 0 to NB_REGISTERS - 1;
     signal jump_target  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     signal jump_op      : out jump_type;
     signal mem_op       : out memory_op_type) is
@@ -247,7 +252,7 @@ architecture rtl of Decode is
     if func = func_jr then
       decode_error <= '0';
       alu_op       <= all_zero;
-      rwritei      <= NB_REGISTERS;
+      rwrite_en    <= '0';
       jump_target  <= rs;
       jump_op      <= always;
     elsif func = func_jalr then
@@ -255,13 +260,15 @@ architecture rtl of Decode is
       alu_op       <= add;
       ra           <= pc;
       rb           <= (others => '0');
+      rwrite_en    <= '1';
       rwritei      <= NB_REGISTERS - 1;
       jump_target  <= rs;
       jump_op      <= always;
     else
-      ra      <= rs;
-      rb      <= rt;
-      rwritei <= rdi;
+      ra        <= rs;
+      rb        <= rt;
+      rwrite_en <= '1';
+      rwritei   <= rdi;
 
       if func = func_mul or func = func_mulu then
         decode_error <= '0';
@@ -315,7 +322,8 @@ architecture rtl of Decode is
     signal alu_op       : out alu_op_type;
     signal ra           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     signal rb           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    signal rwritei      : out natural range 0 to NB_REGISTERS;
+    signal rwrite_en    : out std_logic;
+    signal rwritei      : out natural range 0 to NB_REGISTERS - 1;
     signal jump_target  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     signal jump_op      : out jump_type;
     signal mem_op       : out memory_op_type) is
@@ -325,13 +333,14 @@ architecture rtl of Decode is
     mem_op       <= none;
     jump_target  <= pc(ADDR_WIDTH -1 downto pc_displace'length) & pc_displace;
     if op_code = op_jalr then
-      alu_op  <= add;
-      ra      <= pc;
-      rb      <= (others => '0');
-      rwritei <= NB_REGISTERS - 1;
+      alu_op    <= add;
+      ra        <= pc;
+      rb        <= (others => '0');
+      rwrite_en <= '1';
+      rwritei   <= NB_REGISTERS - 1;
     else
-      alu_op  <= all_zero;
-      rwritei <= NB_REGISTERS;
+      alu_op    <= all_zero;
+      rwrite_en <= '0';
     end if;
   end procedure do_jump;
 
@@ -339,13 +348,14 @@ architecture rtl of Decode is
     signal op_code      : in  std_logic_vector(5 downto 0);
     signal rs           : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
     signal rt           : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-    signal rti          : in  natural range 0 to NB_REGISTERS;
+    signal rti          : in  natural range 0 to NB_REGISTERS - 1;
     signal immediate    : in  signed(DATA_WIDTH / 2 - 1 downto 0);
     signal decode_error : out std_logic;
     signal alu_op       : out alu_op_type;
     signal ra           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     signal rb           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    signal rwritei      : out natural range 0 to NB_REGISTERS;
+    signal rwrite_en    : out std_logic;
+    signal rwritei      : out natural range 0 to NB_REGISTERS - 1;
     signal jump_target  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     signal jump_op      : out jump_type;
     signal mem_op       : out memory_op_type) is
@@ -353,23 +363,26 @@ architecture rtl of Decode is
     decode_error <= '0';
     jump_op      <= none;
     if op_code = op_lw then
-      mem_op  <= loadw;
-      alu_op  <= add;
-      ra      <= rs;
-      rb      <= std_logic_vector(resize(immediate, DATA_WIDTH));
-      rwritei <= rti;
+      mem_op    <= loadw;
+      alu_op    <= add;
+      ra        <= rs;
+      rb        <= std_logic_vector(resize(immediate, DATA_WIDTH));
+      rwrite_en <= '1';
+      rwritei   <= rti;
     elsif op_code = op_lbu then
-      mem_op  <= load8;
-      alu_op  <= add;
-      ra      <= rs;
-      rb      <= std_logic_vector(resize(immediate, DATA_WIDTH));
-      rwritei <= rti;
+      mem_op    <= load8;
+      alu_op    <= add;
+      ra        <= rs;
+      rb        <= std_logic_vector(resize(immediate, DATA_WIDTH));
+      rwrite_en <= '1';
+      rwritei   <= rti;
     elsif op_code = op_lb then
-      mem_op  <= load8_signextend32;
-      alu_op  <= add;
-      ra      <= rs;
-      rb      <= std_logic_vector(resize(immediate, DATA_WIDTH));
-      rwritei <= rti;
+      mem_op    <= load8_signextend32;
+      alu_op    <= add;
+      ra        <= rs;
+      rb        <= std_logic_vector(resize(immediate, DATA_WIDTH));
+      rwrite_en <= '1';
+      rwritei   <= rti;
     elsif op_code = op_sw then
       mem_op <= storew;
       alu_op <= add;
@@ -390,7 +403,8 @@ architecture rtl of Decode is
     signal alu_op       : out alu_op_type;
     signal ra           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     signal rb           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    signal rwritei      : out natural range 0 to NB_REGISTERS;
+    signal rwrite_en    : out std_logic;
+    signal rwritei      : out natural range 0 to NB_REGISTERS - 1;
     signal jump_target  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     signal jump_op      : out jump_type;
     signal mem_op       : out memory_op_type) is
@@ -401,6 +415,7 @@ architecture rtl of Decode is
     ra(DATA_WIDTH - 1 downto DATA_WIDTH / 2) <= std_logic_vector(immediate);
     ra(DATA_WIDTH / 2 - 1 downto 0)          <= (others => '0');
     rb                                       <= (others => '0');
+    rwrite_en                                <= '1';
     rwritei                                  <= rti;
   end procedure do_lui;
 
@@ -423,22 +438,22 @@ begin  -- architecture rtl
     elsif stall_req = '0' and rising_edge(clk) then
       if is_branch = '1' then
         do_branch(op_code, pc, immediate, rs, rt,
-                  decode_error, alu_op, ra, rb, rwritei, jump_target, jump_op, mem_op);
+                  decode_error, alu_op, ra, rb, rwrite_en, rwritei, jump_target, jump_op, mem_op);
       elsif is_immediate = '1' then
         do_immediate(op_code, immediate, rs,
-                     decode_error, alu_op, ra, rb, rwritei, jump_target, jump_op, mem_op);
+                     decode_error, alu_op, ra, rb, rwrite_en, rwritei, jump_target, jump_op, mem_op);
       elsif is_rtype = '1' then
         do_rtype(op_code, func, pc, rs, rt, rdi,
-                 decode_error, alu_op, ra, rb, rwritei, jump_target, jump_op, mem_op);
+                 decode_error, alu_op, ra, rb, rwrite_en, rwritei, jump_target, jump_op, mem_op);
       elsif is_jump = '1' then
         do_jump(op_code, pc, pc_displace, decode_error, alu_op,
-                ra, rb, rwritei, jump_target, jump_op, mem_op);
+                ra, rb, rwrite_en, rwritei, jump_target, jump_op, mem_op);
       elsif is_memory = '1' then
         do_memory(op_code, rs, rt, rti, immediate, decode_error, alu_op,
-                  ra, rb, rwritei, jump_target, jump_op, mem_op);
+                  ra, rb, rwrite_en, rwritei, jump_target, jump_op, mem_op);
       elsif op_code = op_lui then
         do_lui(rt, immediate, decode_error, alu_op,
-               ra, rb, rwritei, jump_target, jump_op, mem_op);
+               ra, rb, rwrite_en, rwritei, jump_target, jump_op, mem_op);
       end if;
     end if;
   end process;

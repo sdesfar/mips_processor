@@ -82,7 +82,8 @@ architecture rtl of MIPS_CPU is
       alu_op      : out alu_op_type;
       ra          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
       rb          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      rwritei     : out natural range 0 to NB_REGISTERS;
+      rwrite_en   : out std_logic;
+      rwritei     : out natural range 0 to NB_REGISTERS - 1;
       jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
       jump_op     : out jump_type;
       mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -98,7 +99,8 @@ architecture rtl of MIPS_CPU is
   signal alu_op              : alu_op_type;
   signal ra                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal rb                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal rwritei             : natural range 0 to NB_REGISTERS;
+  signal decode_rwrite_en    : std_logic;
+  signal decode_rwritei      : natural range 0 to NB_REGISTERS - 1;
   signal stall_pc            : std_logic;
   signal jump_pc             : std_logic;
   signal decode_jump_target  : std_logic_vector(ADDR_WIDTH - 1 downto 0);
@@ -146,7 +148,8 @@ begin  -- architecture rtl
       alu_op      => alu_op,
       ra          => ra,
       rb          => rb,
-      rwritei     => rwritei,
+      rwrite_en   => decode_rwrite_en,
+      rwritei     => decode_rwritei,
       jump_target => decode_jump_target,
       jump_op     => decode_jump_op,
       mem_data    => decode_mem_data,
