@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik (Intel)  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-16
--- Last update: 2016-11-16
+-- Last update: 2016-11-17
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ entity ALU is
     o_rwrite_en   : out std_logic;
     o_rwritei     : out natural range 0 to NB_REGISTERS - 1;
     o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    o_jump_op     : out jump_type;
+    o_is_jump     : out std_logic;
     o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     o_mem_op      : out memory_op_type
     );
@@ -78,48 +78,48 @@ architecture rtl of ALU is
     signal i_jump_op  : in  jump_type;
     signal cond_zero  : in  std_logic;
     signal cond_carry : in  std_logic;
-    signal o_jump_op  : out jump_type) is
+    signal o_is_jump  : out std_logic) is
   begin
     case i_jump_op is
       when none =>
-        o_jump_op <= none;
+        o_is_jump <= '0';
       when always =>
-        o_jump_op <= always;
+        o_is_jump <= '1';
       when zero =>
         if cond_zero = '1' then
-          o_jump_op <= always;
+          o_is_jump <= '1';
         else
-          o_jump_op <= none;
+          o_is_jump <= '0';
         end if;
       when non_zero =>
         if cond_zero = '0' then
-          o_jump_op <= always;
+          o_is_jump <= '1';
         else
-          o_jump_op <= none;
+          o_is_jump <= '0';
         end if;
       when lesser_or_zero =>
         if cond_carry = '1' or cond_zero = '1' then
-          o_jump_op <= always;
+          o_is_jump <= '1';
         else
-          o_jump_op <= none;
+          o_is_jump <= '0';
         end if;
       when greater =>
         if cond_carry = '0' then
-          o_jump_op <= always;
+          o_is_jump <= '1';
         else
-          o_jump_op <= none;
+          o_is_jump <= '0';
         end if;
       when lesser =>
         if cond_carry = '1' then
-          o_jump_op <= always;
+          o_is_jump <= '1';
         else
-          o_jump_op <= none;
+          o_is_jump <= '0';
         end if;
       when greater_or_zero =>
         if cond_carry = '0' or cond_zero = '1' then
-          o_jump_op <= always;
+          o_is_jump <= '1';
         else
-          o_jump_op <= none;
+          o_is_jump <= '0';
         end if;
     end case;
   end procedure do_branch;
@@ -163,7 +163,7 @@ begin  -- architecture rtl
           end if;
       end case;
 
-      do_branch(i_jump_op, cond_zero, cond_carry, o_jump_op);
+      do_branch(i_jump_op, cond_zero, cond_carry, o_is_jump);
 
       o_rwrite_en   <= i_rwrite_en;
       o_rwritei     <= i_rwritei;

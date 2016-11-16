@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-12
+-- Last update: 2016-11-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -27,13 +27,20 @@ use ieee.std_logic_1164.all;
 entity RegisterFile is
 
   generic (
-    DATA_WIDTH   : positive := 32;
-    NB_REGISTERS : positive := 32
+    DATA_WIDTH           : positive := 32;
+    NB_REGISTERS         : positive := 32;  -- r0 to r31
+    NB_REGISTERS_SPECIAL : positive := 2    -- mflo and mfhi
     );
 
   port (
-    a_idx : in  natural range 0 to NB_REGISTERS - 1;
-    b_idx : in  natural range 0 to NB_REGISTERS - 1;
+    clk   : in  std_logic;
+    rst   : in  std_logic;
+    a_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    b_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    -- Writeback register
+    w_en  : in  std_logic;
+    w_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    w     : in  std_logic_vector(DATA_WIDTH * 2 - 1 downto 0);
     a     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     b     : out std_logic_vector(DATA_WIDTH - 1 downto 0)
     );
@@ -47,10 +54,11 @@ architecture rtl of RegisterFile is
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
-  type r_array is array (0 to NB_REGISTERS - 1) of std_logic_vector(DATA_WIDTH -1 downto 0);
+  type r_array is array (0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1) of
+    std_logic_vector(DATA_WIDTH -1 downto 0);
   signal registers : r_array := (
-    x"00000000",
-    x"00000001",
+    x"00000000",                        -- r0
+    x"00000001",                        -- r1
     x"00000002",
     x"00000003",
     x"00000004",
@@ -80,7 +88,9 @@ architecture rtl of RegisterFile is
     x"0000001c",
     x"0000001d",
     x"0000001e",
-    x"0000001f"
+    x"0000001f",                        -- r_NB_REGISTERS-1
+    x"11000000",                        -- mflo
+    x"22000000"                         -- mfhi
     );
 
 begin  -- architecture rtl
@@ -88,6 +98,19 @@ begin  -- architecture rtl
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
+
+  process(rst, clk, w_en)
+  begin
+    if rst = '1' then
+    elsif rising_edge(clk) and w_en = '1' then
+      if w_idx = NB_REGISTERS then
+        registers(NB_REGISTERS)     <= w(DATA_WIDTH - 1 downto 0);
+        registers(NB_REGISTERS + 1) <= w(DATA_WIDTH * 2 - 1 downto DATA_WIDTH);
+      elsif w_idx < NB_REGISTERS then
+        registers(w_idx) <= w(DATA_WIDTH - 1 downto 0);
+      end if;
+    end if;
+  end process;
 
   a <= registers(a_idx);
   b <= registers(b_idx);

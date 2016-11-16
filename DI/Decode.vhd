@@ -30,9 +30,10 @@ use work.cpu_defs.all;
 entity Decode is
 
   generic (
-    ADDR_WIDTH   : integer  := 32;
-    DATA_WIDTH   : integer  := 32;
-    NB_REGISTERS : positive := 32
+    ADDR_WIDTH           : integer  := 32;
+    DATA_WIDTH           : integer  := 32;
+    NB_REGISTERS         : positive := 32;
+    NB_REGISTERS_SPECIAL : positive := 2
     );
 
   port (
@@ -41,11 +42,16 @@ entity Decode is
     stall_req   : in  std_logic;
     instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
     pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    --- Writeback input
+    rwb_en      : in  std_logic;
+    rwbi        : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    rwb_data    : in  std_logic_vector(DATA_WIDTH * 2 -1 downto 0);
+    --- Outputs
     alu_op      : out alu_op_type;
     ra          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     rb          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     rwrite_en   : out std_logic;
-    rwritei     : out natural range 0 to NB_REGISTERS - 1;
+    rwritei     : out natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
     jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     jump_op     : out jump_type;
     mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -103,13 +109,21 @@ end entity Decode;
 
 architecture rtl of Decode is
 
-  component RegisterFile
+  component RegisterFile is
+    generic (
+      DATA_WIDTH           : positive;
+      NB_REGISTERS         : positive;
+      NB_REGISTERS_SPECIAL : positive);
     port (
-      a_idx : in  natural range 0 to NB_REGISTERS - 1;
-      b_idx : in  natural range 0 to NB_REGISTERS - 1;
+      clk   : in  std_logic;
+      rst   : in  std_logic;
+      a_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+      b_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
       a     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      b     : out std_logic_vector(DATA_WIDTH - 1 downto 0)
-      );
+      b     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      w_en  : in  std_logic;
+      w_idx : in  natural range 0 to NB_REGISTERS;
+      w     : in  std_logic_vector(DATA_WIDTH * 2 - 1 downto 0));
   end component RegisterFile;
 
   -----------------------------------------------------------------------------
@@ -424,12 +438,22 @@ begin  -- architecture rtl
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
-  rfile : RegisterFile port map (
-    a_idx => rsi,
-    b_idx => rti,
-    a     => rs,
-    b     => rt
-    );
+  rfile : RegisterFile
+    generic map (
+      DATA_WIDTH           => DATA_WIDTH,
+      NB_REGISTERS         => NB_REGISTERS,
+      NB_REGISTERS_SPECIAL => NB_REGISTERS_SPECIAL)
+    port map (
+      clk   => clk,
+      rst   => rst,
+      a_idx => rsi,
+      b_idx => rti,
+      a     => rs,
+      b     => rt,
+      w_en  => rwb_en,
+      w_idx => rwbi,
+      w     => rwb_data
+      );
 
   process(rst, clk, stall_req, is_branch, is_immediate, is_rtype, is_jump)
   begin
