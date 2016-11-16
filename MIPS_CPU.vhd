@@ -21,6 +21,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 use work.cpu_defs.all;
 
@@ -90,6 +91,31 @@ architecture rtl of MIPS_CPU is
       mem_op      : out memory_op_type);
   end component Decode;
 
+  component ALU is
+    generic (
+      DATA_WIDTH : integer);
+    port (
+      clk           : in  std_logic;
+      rst           : in  std_logic;
+      stall_req     : in  std_logic;
+      alu_op        : in  alu_op_type;
+      ra            : in  unsigned(DATA_WIDTH - 1 downto 0);
+      rb            : in  unsigned(DATA_WIDTH - 1 downto 0);
+      result        : out unsigned(DATA_WIDTH * 2 - 1 downto 0);
+      i_rwrite_en   : in  std_logic;
+      i_rwritei     : in  natural range 0 to NB_REGISTERS - 1;
+      i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      i_jump_op     : in  jump_type;
+      i_mem_data    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+      i_mem_op      : in  memory_op_type;
+      o_rwrite_en   : out std_logic;
+      o_rwritei     : out natural range 0 to NB_REGISTERS - 1;
+      o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      o_jump_op     : out jump_type;
+      o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      o_mem_op      : out memory_op_type);
+  end component ALU;
+
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
@@ -99,14 +125,24 @@ architecture rtl of MIPS_CPU is
   signal alu_op              : alu_op_type;
   signal ra                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal rb                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal decode_rwrite_en    : std_logic;
-  signal decode_rwritei      : natural range 0 to NB_REGISTERS - 1;
+  signal ra_unsigned         : unsigned(DATA_WIDTH - 1 downto 0);
+  signal rb_unsigned         : unsigned(DATA_WIDTH - 1 downto 0);
+  signal result              : unsigned(DATA_WIDTH * 2 - 1 downto 0);
   signal stall_pc            : std_logic;
   signal jump_pc             : std_logic;
+  signal decode_rwrite_en    : std_logic;
+  signal decode_rwritei      : natural range 0 to NB_REGISTERS - 1;
   signal decode_jump_target  : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal decode_jump_op      : jump_type;
   signal decode_mem_data     : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal decode_mem_op       : memory_op_type;
+
+  signal execute_rwrite_en   : std_logic;
+  signal execute_rwritei     : natural range 0 to NB_REGISTERS - 1;
+  signal execute_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal execute_jump_op     : jump_type;
+  signal execute_mem_data    : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal execute_mem_op      : memory_op_type;
 
 begin  -- architecture rtl
 
@@ -155,8 +191,34 @@ begin  -- architecture rtl
       mem_data    => decode_mem_data,
       mem_op      => decode_mem_op);
 
-  stall_pc <= '0';
-  jump_pc  <= '0';
+  ex : ALU
+    generic map (
+      DATA_WIDTH => DATA_WIDTH)
+    port map (
+      clk           => clk,
+      rst           => rst,
+      stall_req     => '0',
+      alu_op        => alu_op,
+      ra            => ra_unsigned,
+      rb            => rb_unsigned,
+      result        => result,
+      i_rwrite_en   => decode_rwrite_en,
+      i_rwritei     => decode_rwritei,
+      i_jump_target => decode_jump_target,
+      i_jump_op     => decode_jump_op,
+      i_mem_data    => decode_mem_data,
+      i_mem_op      => decode_mem_op,
+      o_rwrite_en   => execute_rwrite_en,
+      o_rwritei     => execute_rwritei,
+      o_jump_target => execute_jump_target,
+      o_jump_op     => execute_jump_op,
+      o_mem_data    => execute_mem_data,
+      o_mem_op      => execute_mem_op);
+
+  stall_pc  <= '0';
+  jump_pc   <= '0';
+  ra_unsigned <= unsigned(ra);
+  rb_unsigned <= unsigned(rb);
 
 end architecture rtl;
 
