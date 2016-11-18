@@ -169,37 +169,35 @@ architecture rtl of MIPS_CPU is
   signal jump_target         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal alu_op              : alu_op_type;
-  signal ra                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal rb                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal ra_unsigned         : unsigned(DATA_WIDTH - 1 downto 0);
-  signal rb_unsigned         : unsigned(DATA_WIDTH - 1 downto 0);
-  signal reg1_we             : std_logic;
-  signal reg1_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal reg2_we             : std_logic;
-  signal reg2_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal di2ex_ra            : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal di2ex_rb            : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal di2ex_reg1_we             : std_logic;
+  signal di2ex_reg1_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal di2ex_reg2_we             : std_logic;
+  signal di2ex_reg2_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
   signal stall_pc            : std_logic;
   signal jump_pc             : std_logic;
-  signal decode_reg1_we      : std_logic;
-  signal decode_reg1_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal decode_reg1_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
-  signal decode_reg2_we      : std_logic;
-  signal decode_reg2_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal decode_reg2_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
-  signal decode_jump_target  : std_logic_vector(ADDR_WIDTH - 1 downto 0);
-  signal decode_jump_op      : jump_type;
-  signal decode_mem_data     : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal decode_mem_op       : memory_op_type;
+  signal wb2di_reg1_we      : std_logic;
+  signal wb2di_reg1_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal wb2di_reg1_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
+  signal wb2di_reg2_we      : std_logic;
+  signal wb2di_reg2_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal wb2di_reg2_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
+  signal di2ex_jump_target  : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal di2ex_jump_op      : jump_type;
+  signal di2ex_mem_data     : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal di2ex_mem_op       : memory_op_type;
 
-  signal execute_reg1_we     : std_logic;
-  signal execute_reg1_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal execute_reg1_data   : unsigned(DATA_WIDTH -1 downto 0);
-  signal execute_reg2_we     : std_logic;
-  signal execute_reg2_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal execute_reg2_data   : unsigned(DATA_WIDTH -1 downto 0);
-  signal execute_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
-  signal execute_is_jump     : std_logic;
-  signal execute_mem_data    : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal execute_mem_op      : memory_op_type;
+  signal ex2wb_reg1_we     : std_logic;
+  signal ex2wb_reg1_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal ex2wb_reg1_data   : unsigned(DATA_WIDTH -1 downto 0);
+  signal ex2wb_reg2_we     : std_logic;
+  signal ex2wb_reg2_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal ex2wb_reg2_data   : unsigned(DATA_WIDTH -1 downto 0);
+  signal ex2wb_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal ex2wb_is_jump     : std_logic;
+  signal ex2wb_mem_data    : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal ex2wb_mem_op      : memory_op_type;
 
   signal rwb_reg1_we   : std_logic;
   signal rwb_reg1_idx  : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
@@ -251,23 +249,23 @@ begin  -- architecture rtl
       stall_req     => '0',
       instruction   => fetched_instruction,
       pc            => current_pc,
-      rwb_reg1_we   => decode_reg1_we,
-      rwb_reg1_idx  => decode_reg1_idx,
-      rwb_reg1_data => decode_reg1_data,
-      rwb_reg2_we   => decode_reg2_we,
-      rwb_reg2_idx  => decode_reg2_idx,
-      rwb_reg2_data => decode_reg2_data,
+      rwb_reg1_we   => wb2di_reg1_we,
+      rwb_reg1_idx  => wb2di_reg1_idx,
+      rwb_reg1_data => wb2di_reg1_data,
+      rwb_reg2_we   => wb2di_reg2_we,
+      rwb_reg2_idx  => wb2di_reg2_idx,
+      rwb_reg2_data => wb2di_reg2_data,
       alu_op        => alu_op,
-      ra            => ra,
-      rb            => rb,
-      reg1_we       => reg1_we,
-      reg1_idx      => reg1_idx,
-      reg2_we       => reg2_we,
-      reg2_idx      => reg2_idx,
-      jump_target   => decode_jump_target,
-      jump_op       => decode_jump_op,
-      mem_data      => decode_mem_data,
-      mem_op        => decode_mem_op);
+      ra            => di2ex_ra,
+      rb            => di2ex_rb,
+      reg1_we       => di2ex_reg1_we,
+      reg1_idx      => di2ex_reg1_idx,
+      reg2_we       => di2ex_reg2_we,
+      reg2_idx      => di2ex_reg2_idx,
+      jump_target   => di2ex_jump_target,
+      jump_op       => di2ex_jump_op,
+      mem_data      => di2ex_mem_data,
+      mem_op        => di2ex_mem_op);
 
 
   ex : ALU
@@ -280,26 +278,26 @@ begin  -- architecture rtl
       rst           => rst,
       stall_req     => '0',
       alu_op        => alu_op,
-      ra            => ra_unsigned,
-      rb            => rb_unsigned,
-      qa            => execute_reg1_data,
-      qb            => execute_reg2_data,
-      i_reg1_we     => reg1_we,
-      i_reg1_idx    => reg1_idx,
-      i_reg2_we     => reg2_we,
-      i_reg2_idx    => reg2_idx,
-      i_jump_target => decode_jump_target,
-      i_jump_op     => decode_jump_op,
-      i_mem_data    => decode_mem_data,
-      i_mem_op      => decode_mem_op,
-      o_reg1_we     => execute_reg1_we,
-      o_reg1_idx    => execute_reg1_idx,
-      o_reg2_we     => execute_reg2_we,
-      o_reg2_idx    => execute_reg2_idx,
-      o_jump_target => execute_jump_target,
-      o_is_jump     => execute_is_jump,
-      o_mem_data    => execute_mem_data,
-      o_mem_op      => execute_mem_op);
+      ra            => unsigned(di2ex_ra),
+      rb            => unsigned(di2ex_rb),
+      qa            => ex2wb_reg1_data,
+      qb            => ex2wb_reg2_data,
+      i_reg1_we     => di2ex_reg1_we,
+      i_reg1_idx    => di2ex_reg1_idx,
+      i_reg2_we     => di2ex_reg2_we,
+      i_reg2_idx    => di2ex_reg2_idx,
+      i_jump_target => di2ex_jump_target,
+      i_jump_op     => di2ex_jump_op,
+      i_mem_data    => di2ex_mem_data,
+      i_mem_op      => di2ex_mem_op,
+      o_reg1_we     => ex2wb_reg1_we,
+      o_reg1_idx    => ex2wb_reg1_idx,
+      o_reg2_we     => ex2wb_reg2_we,
+      o_reg2_idx    => ex2wb_reg2_idx,
+      o_jump_target => ex2wb_jump_target,
+      o_is_jump     => ex2wb_is_jump,
+      o_mem_data    => ex2wb_mem_data,
+      o_mem_op      => ex2wb_mem_op);
 
   wb : Writeback
     generic map (
@@ -310,26 +308,24 @@ begin  -- architecture rtl
       clk           => clk,
       rst           => rst,
       stall_req     => '0',
-      i_reg1_we     => execute_reg1_we,
-      i_reg1_idx    => execute_reg1_idx,
-      i_reg1_data   => std_logic_vector(execute_reg1_data),
-      i_reg2_we     => execute_reg2_we,
-      i_reg2_idx    => execute_reg2_idx,
-      i_reg2_data   => std_logic_vector(execute_reg2_data),
-      i_jump_target => execute_jump_target,
-      i_is_jump     => execute_is_jump,
-      o_reg1_we     => decode_reg1_we,
-      o_reg1_idx    => decode_reg1_idx,
-      o_reg1_data   => decode_reg1_data,
-      o_reg2_we     => decode_reg2_we,
-      o_reg2_idx    => decode_reg2_idx,
-      o_reg2_data   => decode_reg2_data,
+      i_reg1_we     => ex2wb_reg1_we,
+      i_reg1_idx    => ex2wb_reg1_idx,
+      i_reg1_data   => std_logic_vector(ex2wb_reg1_data),
+      i_reg2_we     => ex2wb_reg2_we,
+      i_reg2_idx    => ex2wb_reg2_idx,
+      i_reg2_data   => std_logic_vector(ex2wb_reg2_data),
+      i_jump_target => ex2wb_jump_target,
+      i_is_jump     => ex2wb_is_jump,
+      o_reg1_we     => wb2di_reg1_we,
+      o_reg1_idx    => wb2di_reg1_idx,
+      o_reg1_data   => wb2di_reg1_data,
+      o_reg2_we     => wb2di_reg2_we,
+      o_reg2_idx    => wb2di_reg2_idx,
+      o_reg2_data   => wb2di_reg2_data,
       o_is_jump     => wb_is_jump,
       o_jump_target => wb_jump_target);
 
-  stall_pc    <= '0';
-  ra_unsigned <= unsigned(ra);
-  rb_unsigned <= unsigned(rb);
+  stall_pc <= '0';
 
 end architecture rtl;
 
