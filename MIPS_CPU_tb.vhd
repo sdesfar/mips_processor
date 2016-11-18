@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-12
+-- Last update: 2016-11-16
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -52,9 +52,9 @@ begin  -- architecture rtl
       rst => rst);
 
   -- reset
-  Rst <= '0' after 24 ns;
+  Rst <= '0' after 24 ps;
   -- clock generation
-  Clk <= not Clk after 10 ns;
+  Clk <= not Clk after 10 ps;
 
   -- waveform generation
   WaveGen_Proc: process
