@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-16
+-- Last update: 2016-11-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -33,16 +33,20 @@ entity RegisterFile is
     );
 
   port (
-    clk   : in  std_logic;
-    rst   : in  std_logic;
-    a_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
-    b_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    clk           : in  std_logic;
+    rst           : in  std_logic;
+    a_idx         : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    b_idx         : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
     -- Writeback register
-    w_en  : in  std_logic;
-    w_idx : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
-    w     : in  std_logic_vector(DATA_WIDTH * 2 - 1 downto 0);
-    a     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    b     : out std_logic_vector(DATA_WIDTH - 1 downto 0)
+    rwb_reg1_we   : in  std_logic;
+    rwb_reg1_idx  : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    rwb_reg1_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    rwb_reg2_we   : in  std_logic;
+    rwb_reg2_idx  : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
+    rwb_reg2_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    -- Output read registers
+    a             : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+    b             : out std_logic_vector(DATA_WIDTH - 1 downto 0)
     );
 
 end entity RegisterFile;
@@ -99,15 +103,15 @@ begin  -- architecture rtl
   -- Component instantiations
   -----------------------------------------------------------------------------
 
-  process(rst, clk, w_en)
+  process(rst, clk, rwb_reg1_we, rwb_reg2_we)
   begin
     if rst = '1' then
-    elsif rising_edge(clk) and w_en = '1' then
-      if w_idx = NB_REGISTERS then
-        registers(NB_REGISTERS)     <= w(DATA_WIDTH - 1 downto 0);
-        registers(NB_REGISTERS + 1) <= w(DATA_WIDTH * 2 - 1 downto DATA_WIDTH);
-      elsif w_idx < NB_REGISTERS then
-        registers(w_idx) <= w(DATA_WIDTH - 1 downto 0);
+    elsif rising_edge(clk) then
+      if rwb_reg1_we = '1' then
+        registers(rwb_reg1_idx) <= rwb_reg1_data;
+      end if;
+      if rwb_reg2_we = '1' then
+        registers(rwb_reg2_idx) <= rwb_reg2_data;
       end if;
     end if;
   end process;

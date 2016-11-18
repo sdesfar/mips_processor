@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik (Intel)  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-16
--- Last update: 2016-11-17
+-- Last update: 2016-11-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -42,16 +42,21 @@ entity ALU is
     alu_op        : in  alu_op_type;
     ra            : in  unsigned(DATA_WIDTH - 1 downto 0);
     rb            : in  unsigned(DATA_WIDTH - 1 downto 0);
-    result        : out unsigned(DATA_WIDTH * 2 - 1 downto 0);
+    qa            : out unsigned(DATA_WIDTH - 1 downto 0);
+    qb            : out unsigned(DATA_WIDTH - 1 downto 0);
     -- Carry-over signals
-    i_rwrite_en   : in  std_logic;
-    i_rwritei     : in  natural range 0 to NB_REGISTERS - 1;
+    i_reg1_we     : in  std_logic;
+    i_reg1_idx    : in  natural range 0 to NB_REGISTERS - 1;
+    i_reg2_we     : in  std_logic;
+    i_reg2_idx    : in  natural range 0 to NB_REGISTERS - 1;
     i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     i_jump_op     : in  jump_type;
     i_mem_data    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
     i_mem_op      : in  memory_op_type;
-    o_rwrite_en   : out std_logic;
-    o_rwritei     : out natural range 0 to NB_REGISTERS - 1;
+    o_reg1_we     : out std_logic;
+    o_reg1_idx    : out natural range 0 to NB_REGISTERS - 1;
+    o_reg2_we     : out std_logic;
+    o_reg2_idx    : out natural range 0 to NB_REGISTERS - 1;
     o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     o_is_jump     : out std_logic;
     o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -67,7 +72,7 @@ architecture rtl of ALU is
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
-  signal q          : unsigned(DATA_WIDTH * 2 downto 0);
+  signal q          : unsigned(DATA_WIDTH * 2 - 1 downto 0);
   signal cond_zero  : std_logic;
   signal cond_carry : std_logic;
 
@@ -143,7 +148,7 @@ begin  -- architecture rtl
         when substract =>
           q(DATA_WIDTH downto 0) <= resize(ra, DATA_WIDTH + 1) - resize(rb, DATA_WIDTH + 1);
         when multiply =>
-          q(DATA_WIDTH * 2 - 1 downto 0) <= ra * rb;
+          q <= ra * rb;
         when divide =>
           q(DATA_WIDTH - 1 downto 0)              <= ra / rb;
           q(DATA_WIDTH * 2 - 1 downto DATA_WIDTH) <= ra rem rb;
@@ -157,23 +162,26 @@ begin  -- architecture rtl
           q(DATA_WIDTH - 1 downto 0) <= ra nor rb;
         when slt =>
           if unsigned(ra) < unsigned(rb) then
-            q <= (0 => '1', others => '0');
+            q(DATA_WIDTH - 1 downto 0) <= (0 => '1', others => '0');
           else
-            q <= (others => '0');
+            q(DATA_WIDTH - 1 downto 0) <= (others => '0');
           end if;
       end case;
 
       do_branch(i_jump_op, cond_zero, cond_carry, o_is_jump);
 
-      o_rwrite_en   <= i_rwrite_en;
-      o_rwritei     <= i_rwritei;
+      o_reg1_we     <= i_reg1_we;
+      o_reg1_idx    <= i_reg1_idx;
+      o_reg2_we     <= i_reg2_we;
+      o_reg2_idx    <= i_reg2_idx;
       o_jump_target <= i_jump_target;
       o_mem_data    <= i_mem_data;
       o_mem_op      <= i_mem_op;
     end if;
   end process;
 
-  result     <= q(DATA_WIDTH * 2 - 1 downto 0);
+  qa         <= q(DATA_WIDTH -1 downto 0);
+  qb         <= q(DATA_WIDTH * 2 -1 downto DATA_WIDTH);
   cond_zero  <= '1' when unsigned(q) = to_unsigned(0, DATA_WIDTH);
   cond_carry <= q(DATA_WIDTH);
 

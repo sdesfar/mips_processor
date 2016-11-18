@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-16
+-- Last update: 2016-11-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ entity MIPS_CPU is
   generic (
     ADDR_WIDTH           : integer  := 32;
     DATA_WIDTH           : integer  := 32;
-    NB_REGISTERS         : positive := 32;  -- r0 to r31
+    NB_REGISTERS_GP      : positive := 32;  -- r0 to r31
     NB_REGISTERS_SPECIAL : positive := 2    -- mflo and mfhi
     );
 
@@ -75,30 +75,39 @@ architecture rtl of MIPS_CPU is
       ADDR_WIDTH           : integer;
       DATA_WIDTH           : integer;
       NB_REGISTERS         : positive;
-      NB_REGISTERS_SPECIAL : positive);
+      NB_REGISTERS_SPECIAL : positive;
+      REG_IDX_MFLO         : natural;
+      REG_IDX_MFHI         : natural);
     port (
-      clk         : in  std_logic;
-      rst         : in  std_logic;
-      stall_req   : in  std_logic;
-      instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-      pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      rwb_en      : in  std_logic;
-      rwbi        : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
-      rwb_data    : in  std_logic_vector(DATA_WIDTH * 2 -1 downto 0);
-      alu_op      : out alu_op_type;
-      ra          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      rb          : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      rwrite_en   : out std_logic;
-      rwritei     : out natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
-      jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      jump_op     : out jump_type;
-      mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      mem_op      : out memory_op_type);
+      clk           : in  std_logic;
+      rst           : in  std_logic;
+      stall_req     : in  std_logic;
+      instruction   : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+      pc            : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      rwb_reg1_we   : in  std_logic;
+      rwb_reg1_idx  : in  natural range 0 to NB_REGISTERS - 1;
+      rwb_reg1_data : in  std_logic_vector(DATA_WIDTH -1 downto 0);
+      rwb_reg2_we   : in  std_logic;
+      rwb_reg2_idx  : in  natural range 0 to NB_REGISTERS - 1;
+      rwb_reg2_data : in  std_logic_vector(DATA_WIDTH -1 downto 0);
+      alu_op        : out alu_op_type;
+      ra            : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      rb            : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      reg1_we       : out std_logic;
+      reg1_idx      : out natural range 0 to NB_REGISTERS - 1;
+      reg2_we       : out std_logic;
+      reg2_idx      : out natural range 0 to NB_REGISTERS - 1;
+      jump_target   : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      jump_op       : out jump_type;
+      mem_data      : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      mem_op        : out memory_op_type);
   end component Decode;
 
   component ALU is
     generic (
-      DATA_WIDTH : integer);
+      ADDR_WIDTH   : integer;
+      DATA_WIDTH   : integer;
+      NB_REGISTERS : positive);
     port (
       clk           : in  std_logic;
       rst           : in  std_logic;
@@ -106,15 +115,20 @@ architecture rtl of MIPS_CPU is
       alu_op        : in  alu_op_type;
       ra            : in  unsigned(DATA_WIDTH - 1 downto 0);
       rb            : in  unsigned(DATA_WIDTH - 1 downto 0);
-      result        : out unsigned(DATA_WIDTH * 2 - 1 downto 0);
-      i_rwrite_en   : in  std_logic;
-      i_rwritei     : in  natural range 0 to NB_REGISTERS - 1;
+      qa            : out unsigned(DATA_WIDTH - 1 downto 0);
+      qb            : out unsigned(DATA_WIDTH - 1 downto 0);
+      i_reg1_we     : in  std_logic;
+      i_reg1_idx    : in  natural range 0 to NB_REGISTERS - 1;
+      i_reg2_we     : in  std_logic;
+      i_reg2_idx    : in  natural range 0 to NB_REGISTERS - 1;
       i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
       i_jump_op     : in  jump_type;
       i_mem_data    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
       i_mem_op      : in  memory_op_type;
-      o_rwrite_en   : out std_logic;
-      o_rwritei     : out natural range 0 to NB_REGISTERS - 1;
+      o_reg1_we     : out std_logic;
+      o_reg1_idx    : out natural range 0 to NB_REGISTERS - 1;
+      o_reg2_we     : out std_logic;
+      o_reg2_idx    : out natural range 0 to NB_REGISTERS - 1;
       o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
       o_is_jump     : out std_logic;
       o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -123,22 +137,27 @@ architecture rtl of MIPS_CPU is
 
   component Writeback is
     generic (
-      ADDR_WIDTH           : integer;
-      DATA_WIDTH           : integer;
-      NB_REGISTERS         : positive;
-      NB_REGISTERS_SPECIAL : positive);
+      ADDR_WIDTH   : integer;
+      DATA_WIDTH   : integer;
+      NB_REGISTERS : positive);
     port (
       clk           : in  std_logic;
       rst           : in  std_logic;
       stall_req     : in  std_logic;
-      i_rwrite_en   : in  std_logic;
-      i_rwritei     : in  natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
-      i_rwrite_data : in  std_logic_vector(DATA_WIDTH * 2 - 1 downto 0);
+      i_reg1_we     : in  std_logic;
+      i_reg1_idx    : in  natural range 0 to NB_REGISTERS - 1;
+      i_reg1_data   : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+      i_reg2_we     : in  std_logic;
+      i_reg2_idx    : in  natural range 0 to NB_REGISTERS - 1;
+      i_reg2_data   : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
       i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
       i_is_jump     : in  std_logic;
-      o_rwrite_en   : out std_logic;
-      o_rwritei     : out natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
-      o_rwrite_data : out std_logic_vector(DATA_WIDTH * 2 - 1 downto 0);
+      o_reg1_we     : out std_logic;
+      o_reg1_idx    : out natural range 0 to NB_REGISTERS - 1;
+      o_reg1_data   : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      o_reg2_we     : out std_logic;
+      o_reg2_idx    : out natural range 0 to NB_REGISTERS - 1;
+      o_reg2_data   : out std_logic_vector(DATA_WIDTH - 1 downto 0);
       o_is_jump     : out std_logic;
       o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0));
   end component Writeback;
@@ -154,27 +173,41 @@ architecture rtl of MIPS_CPU is
   signal rb                  : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal ra_unsigned         : unsigned(DATA_WIDTH - 1 downto 0);
   signal rb_unsigned         : unsigned(DATA_WIDTH - 1 downto 0);
-  signal result              : unsigned(DATA_WIDTH * 2 - 1 downto 0);
+  signal reg1_we             : std_logic;
+  signal reg1_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal reg2_we             : std_logic;
+  signal reg2_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
   signal stall_pc            : std_logic;
   signal jump_pc             : std_logic;
-  signal decode_rwrite_en    : std_logic;
-  signal decode_rwritei      : natural range 0 to NB_REGISTERS - 1;
+  signal decode_reg1_we      : std_logic;
+  signal decode_reg1_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal decode_reg1_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
+  signal decode_reg2_we      : std_logic;
+  signal decode_reg2_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal decode_reg2_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
   signal decode_jump_target  : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal decode_jump_op      : jump_type;
   signal decode_mem_data     : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal decode_mem_op       : memory_op_type;
 
-  signal execute_rwrite_en   : std_logic;
-  signal execute_rwritei     : natural range 0 to NB_REGISTERS - 1;
+  signal execute_reg1_we     : std_logic;
+  signal execute_reg1_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal execute_reg1_data   : unsigned(DATA_WIDTH -1 downto 0);
+  signal execute_reg2_we     : std_logic;
+  signal execute_reg2_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal execute_reg2_data   : unsigned(DATA_WIDTH -1 downto 0);
   signal execute_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal execute_is_jump     : std_logic;
   signal execute_mem_data    : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal execute_mem_op      : memory_op_type;
 
-  signal wb_result      : std_logic_vector(DATA_WIDTH * 2 - 1 downto 0);
-  signal rwb_en         : std_logic;
-  signal rwbi           : natural range 0 to NB_REGISTERS + NB_REGISTERS_SPECIAL - 1;
-  signal rwb_data       : std_logic_vector(DATA_WIDTH * 2 -1 downto 0);
+  signal rwb_reg1_we   : std_logic;
+  signal rwb_reg1_idx  : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal rwb_reg1_data : std_logic_vector(DATA_WIDTH -1 downto 0);
+  signal rwb_reg2_we   : std_logic;
+  signal rwb_reg2_idx  : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal rwb_reg2_data : std_logic_vector(DATA_WIDTH -1 downto 0);
+
   signal wb_is_jump     : std_logic;
   signal wb_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
@@ -208,30 +241,40 @@ begin  -- architecture rtl
     generic map (
       ADDR_WIDTH           => ADDR_WIDTH,
       DATA_WIDTH           => DATA_WIDTH,
-      NB_REGISTERS         => NB_REGISTERS,
-      NB_REGISTERS_SPECIAL => NB_REGISTERS_SPECIAL)
+      NB_REGISTERS         => NB_REGISTERS_GP + NB_REGISTERS_SPECIAL,
+      NB_REGISTERS_SPECIAL => NB_REGISTERS_SPECIAL,
+      REG_IDX_MFLO         => 32,
+      REG_IDX_MFHI         => 33)
     port map (
-      clk         => clk,
-      rst         => rst,
-      stall_req   => '0',
-      instruction => fetched_instruction,
-      pc          => current_pc,
-      rwb_en      => rwb_en,
-      rwbi        => rwbi,
-      rwb_data    => rwb_data,
-      alu_op      => alu_op,
-      ra          => ra,
-      rb          => rb,
-      rwrite_en   => decode_rwrite_en,
-      rwritei     => decode_rwritei,
-      jump_target => decode_jump_target,
-      jump_op     => decode_jump_op,
-      mem_data    => decode_mem_data,
-      mem_op      => decode_mem_op);
+      clk           => clk,
+      rst           => rst,
+      stall_req     => '0',
+      instruction   => fetched_instruction,
+      pc            => current_pc,
+      rwb_reg1_we   => decode_reg1_we,
+      rwb_reg1_idx  => decode_reg1_idx,
+      rwb_reg1_data => decode_reg1_data,
+      rwb_reg2_we   => decode_reg2_we,
+      rwb_reg2_idx  => decode_reg2_idx,
+      rwb_reg2_data => decode_reg2_data,
+      alu_op        => alu_op,
+      ra            => ra,
+      rb            => rb,
+      reg1_we       => reg1_we,
+      reg1_idx      => reg1_idx,
+      reg2_we       => reg2_we,
+      reg2_idx      => reg2_idx,
+      jump_target   => decode_jump_target,
+      jump_op       => decode_jump_op,
+      mem_data      => decode_mem_data,
+      mem_op        => decode_mem_op);
+
 
   ex : ALU
     generic map (
-      DATA_WIDTH => DATA_WIDTH)
+      ADDR_WIDTH   => ADDR_WIDTH,
+      DATA_WIDTH   => DATA_WIDTH,
+      NB_REGISTERS => NB_REGISTERS_GP + NB_REGISTERS_SPECIAL)
     port map (
       clk           => clk,
       rst           => rst,
@@ -239,15 +282,20 @@ begin  -- architecture rtl
       alu_op        => alu_op,
       ra            => ra_unsigned,
       rb            => rb_unsigned,
-      result        => result,
-      i_rwrite_en   => decode_rwrite_en,
-      i_rwritei     => decode_rwritei,
+      qa            => execute_reg1_data,
+      qb            => execute_reg2_data,
+      i_reg1_we     => reg1_we,
+      i_reg1_idx    => reg1_idx,
+      i_reg2_we     => reg2_we,
+      i_reg2_idx    => reg2_idx,
       i_jump_target => decode_jump_target,
       i_jump_op     => decode_jump_op,
       i_mem_data    => decode_mem_data,
       i_mem_op      => decode_mem_op,
-      o_rwrite_en   => execute_rwrite_en,
-      o_rwritei     => execute_rwritei,
+      o_reg1_we     => execute_reg1_we,
+      o_reg1_idx    => execute_reg1_idx,
+      o_reg2_we     => execute_reg2_we,
+      o_reg2_idx    => execute_reg2_idx,
       o_jump_target => execute_jump_target,
       o_is_jump     => execute_is_jump,
       o_mem_data    => execute_mem_data,
@@ -255,29 +303,33 @@ begin  -- architecture rtl
 
   wb : Writeback
     generic map (
-      ADDR_WIDTH           => ADDR_WIDTH,
-      DATA_WIDTH           => DATA_WIDTH,
-      NB_REGISTERS         => NB_REGISTERS,
-      NB_REGISTERS_SPECIAL => NB_REGISTERS_SPECIAL)
+      ADDR_WIDTH   => ADDR_WIDTH,
+      DATA_WIDTH   => DATA_WIDTH,
+      NB_REGISTERS => NB_REGISTERS_GP + NB_REGISTERS_SPECIAL)
     port map (
       clk           => clk,
       rst           => rst,
       stall_req     => '0',
-      i_rwrite_en   => execute_rwrite_en,
-      i_rwritei     => execute_rwritei,
-      i_rwrite_data => wb_result,
+      i_reg1_we     => execute_reg1_we,
+      i_reg1_idx    => execute_reg1_idx,
+      i_reg1_data   => std_logic_vector(execute_reg1_data),
+      i_reg2_we     => execute_reg2_we,
+      i_reg2_idx    => execute_reg2_idx,
+      i_reg2_data   => std_logic_vector(execute_reg2_data),
       i_jump_target => execute_jump_target,
       i_is_jump     => execute_is_jump,
-      o_rwrite_en   => rwb_en,
-      o_rwritei     => rwbi,
-      o_rwrite_data => rwb_data,
+      o_reg1_we     => decode_reg1_we,
+      o_reg1_idx    => decode_reg1_idx,
+      o_reg1_data   => decode_reg1_data,
+      o_reg2_we     => decode_reg2_we,
+      o_reg2_idx    => decode_reg2_idx,
+      o_reg2_data   => decode_reg2_data,
       o_is_jump     => wb_is_jump,
       o_jump_target => wb_jump_target);
 
   stall_pc    <= '0';
   ra_unsigned <= unsigned(ra);
   rb_unsigned <= unsigned(rb);
-  wb_result   <= std_logic_vector(result);
 
 end architecture rtl;
 
