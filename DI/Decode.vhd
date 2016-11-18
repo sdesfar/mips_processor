@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-17
+-- Last update: 2016-11-18
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -39,30 +39,22 @@ entity Decode is
     );
 
   port (
-    clk           : in  std_logic;
-    rst           : in  std_logic;
-    stall_req     : in  std_logic;
-    instruction   : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-    pc            : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    clk         : in  std_logic;
+    rst         : in  std_logic;
+    stall_req   : in  std_logic;
+    instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     --- Writeback input
-    rwb_reg1_we   : in  std_logic;
-    rwb_reg1_idx  : in  natural range 0 to NB_REGISTERS - 1;
-    rwb_reg1_data : in  std_logic_vector(DATA_WIDTH -1 downto 0);
-    rwb_reg2_we   : in  std_logic;
-    rwb_reg2_idx  : in  natural range 0 to NB_REGISTERS - 1;
-    rwb_reg2_data : in  std_logic_vector(DATA_WIDTH -1 downto 0);
+    i_rwb_reg1  : in  register_port_type;
+    i_rwb_reg2  : in  register_port_type;
     --- Outputs
-    alu_op        : out alu_op_type;
-    ra            : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    rb            : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    reg1_we       : out std_logic;
-    reg1_idx      : out natural range 0 to NB_REGISTERS - 1;
-    reg2_we       : out std_logic;
-    reg2_idx      : out natural range 0 to NB_REGISTERS - 1;
-    jump_target   : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    jump_op       : out jump_type;
-    mem_data      : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    mem_op        : out memory_op_type
+    alu_op      : out alu_op_type;
+    o_reg1      : out register_port_type;
+    o_reg2      : out register_port_type;
+    jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    jump_op     : out jump_type;
+    mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+    mem_op      : out memory_op_type
     );
 
   constant op_rtype : std_logic_vector(5 downto 0) := "000000";
@@ -115,6 +107,8 @@ end entity Decode;
 -------------------------------------------------------------------------------
 
 architecture rtl of Decode is
+  alias ra : std_logic_vector(DATA_WIDTH - 1 downto 0) is o_reg1.data;
+  alias rb : std_logic_vector(DATA_WIDTH - 1 downto 0) is o_reg2.data;
 
   component RegisterFile is
     generic (
@@ -494,12 +488,12 @@ begin  -- architecture rtl
       b_idx         => rti,
       a             => rs,
       b             => rt,
-      rwb_reg1_we   => rwb_reg1_we,
-      rwb_reg1_idx  => rwb_reg1_idx,
-      rwb_reg1_data => rwb_reg1_data,
-      rwb_reg2_we   => rwb_reg2_we,
-      rwb_reg2_idx  => rwb_reg2_idx,
-      rwb_reg2_data => rwb_reg2_data
+      rwb_reg1_we   => i_rwb_reg1.we,
+      rwb_reg1_idx  => i_rwb_reg1.idx,
+      rwb_reg1_data => i_rwb_reg1.data,
+      rwb_reg2_we   => i_rwb_reg2.we,
+      rwb_reg2_idx  => i_rwb_reg2.idx,
+      rwb_reg2_data => i_rwb_reg2.data
       );
 
   process(rst, clk, stall_req, is_branch, is_immediate, is_rtype, is_jump)
@@ -509,22 +503,22 @@ begin  -- architecture rtl
     elsif stall_req = '0' and rising_edge(clk) then
       if is_branch = '1' then
         do_branch(op_code, pc, immediate, rs, rt,
-                  decode_error, alu_op, ra, rb, reg1_we, reg1_idx, reg2_we, jump_target, jump_op, mem_op);
+                  decode_error, alu_op, ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif is_immediate = '1' then
         do_immediate(op_code, immediate, rs,
-                     decode_error, alu_op, ra, rb, reg1_we, reg1_idx, reg2_we, jump_target, jump_op, mem_op);
+                     decode_error, alu_op, ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif is_rtype = '1' then
         do_rtype(op_code, func, pc, rs, rt, rdi,
-                 decode_error, alu_op, ra, rb, reg1_we, reg1_idx, reg2_we, reg2_idx, jump_target, jump_op, mem_op);
+                 decode_error, alu_op, ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, o_reg2.idx, jump_target, jump_op, mem_op);
       elsif is_jump = '1' then
         do_jump(op_code, pc, pc_displace, decode_error, alu_op,
-                ra, rb, reg1_we, reg1_idx, reg2_we, jump_target, jump_op, mem_op);
+                ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif is_memory = '1' then
         do_memory(op_code, rs, rt, rti, immediate, decode_error, alu_op,
-                  ra, rb, reg1_we, reg1_idx, reg2_we, jump_target, jump_op, mem_op);
+                  ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif op_code = op_lui then
         do_lui(rt, immediate, decode_error, alu_op,
-               ra, rb, reg1_we, reg1_idx, reg2_we, jump_target, jump_op, mem_op);
+               ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
       end if;
     end if;
   end process;

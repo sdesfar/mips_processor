@@ -40,23 +40,15 @@ entity ALU is
     rst           : in  std_logic;
     stall_req     : in  std_logic;
     alu_op        : in  alu_op_type;
-    ra            : in  unsigned(DATA_WIDTH - 1 downto 0);
-    rb            : in  unsigned(DATA_WIDTH - 1 downto 0);
-    qa            : out unsigned(DATA_WIDTH - 1 downto 0);
-    qb            : out unsigned(DATA_WIDTH - 1 downto 0);
+    i_reg1        : in  register_port_type;
+    i_reg2        : in  register_port_type;
     -- Carry-over signals
-    i_reg1_we     : in  std_logic;
-    i_reg1_idx    : in  natural range 0 to NB_REGISTERS - 1;
-    i_reg2_we     : in  std_logic;
-    i_reg2_idx    : in  natural range 0 to NB_REGISTERS - 1;
     i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     i_jump_op     : in  jump_type;
     i_mem_data    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
     i_mem_op      : in  memory_op_type;
-    o_reg1_we     : out std_logic;
-    o_reg1_idx    : out natural range 0 to NB_REGISTERS - 1;
-    o_reg2_we     : out std_logic;
-    o_reg2_idx    : out natural range 0 to NB_REGISTERS - 1;
+    o_reg1        : out register_port_type;
+    o_reg2        : out register_port_type;
     o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     o_is_jump     : out std_logic;
     o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -68,6 +60,8 @@ end entity ALU;
 -------------------------------------------------------------------------------
 
 architecture rtl of ALU is
+  alias ra : unsigned(DATA_WIDTH - 1 downto 0) is unsigned(i_reg1.data);
+  alias rb : unsigned(DATA_WIDTH - 1 downto 0) is unsigned(i_reg2.data);
 
   -----------------------------------------------------------------------------
   -- Internal signal declarations
@@ -170,20 +164,20 @@ begin  -- architecture rtl
 
       do_branch(i_jump_op, cond_zero, cond_carry, o_is_jump);
 
-      o_reg1_we     <= i_reg1_we;
-      o_reg1_idx    <= i_reg1_idx;
-      o_reg2_we     <= i_reg2_we;
-      o_reg2_idx    <= i_reg2_idx;
+      o_reg1.we     <= i_reg1.we;
+      o_reg1.idx    <= i_reg1.idx;
+      o_reg2.we     <= i_reg2.we;
+      o_reg2.idx    <= i_reg2.idx;
       o_jump_target <= i_jump_target;
       o_mem_data    <= i_mem_data;
       o_mem_op      <= i_mem_op;
     end if;
   end process;
 
-  qa         <= q(DATA_WIDTH -1 downto 0);
-  qb         <= q(DATA_WIDTH * 2 -1 downto DATA_WIDTH);
-  cond_zero  <= '1' when unsigned(q) = to_unsigned(0, DATA_WIDTH);
-  cond_carry <= q(DATA_WIDTH);
+  o_reg1.data <= std_logic_vector(q(DATA_WIDTH -1 downto 0));
+  o_reg2.data <= std_logic_vector(q(DATA_WIDTH * 2 -1 downto DATA_WIDTH));
+  cond_zero   <= '1' when unsigned(q) = to_unsigned(0, DATA_WIDTH);
+  cond_carry  <= q(DATA_WIDTH);
 
 end architecture rtl;
 

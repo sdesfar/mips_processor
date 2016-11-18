@@ -79,28 +79,20 @@ architecture rtl of MIPS_CPU is
       REG_IDX_MFLO         : natural;
       REG_IDX_MFHI         : natural);
     port (
-      clk           : in  std_logic;
-      rst           : in  std_logic;
-      stall_req     : in  std_logic;
-      instruction   : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-      pc            : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      rwb_reg1_we   : in  std_logic;
-      rwb_reg1_idx  : in  natural range 0 to NB_REGISTERS - 1;
-      rwb_reg1_data : in  std_logic_vector(DATA_WIDTH -1 downto 0);
-      rwb_reg2_we   : in  std_logic;
-      rwb_reg2_idx  : in  natural range 0 to NB_REGISTERS - 1;
-      rwb_reg2_data : in  std_logic_vector(DATA_WIDTH -1 downto 0);
-      alu_op        : out alu_op_type;
-      ra            : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      rb            : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      reg1_we       : out std_logic;
-      reg1_idx      : out natural range 0 to NB_REGISTERS - 1;
-      reg2_we       : out std_logic;
-      reg2_idx      : out natural range 0 to NB_REGISTERS - 1;
-      jump_target   : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      jump_op       : out jump_type;
-      mem_data      : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      mem_op        : out memory_op_type);
+      clk         : in  std_logic;
+      rst         : in  std_logic;
+      stall_req   : in  std_logic;
+      instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+      pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      i_rwb_reg1  : in  register_port_type;
+      i_rwb_reg2  : in  register_port_type;
+      alu_op      : out alu_op_type;
+      o_reg1      : out register_port_type;
+      o_reg2      : out register_port_type;
+      jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      jump_op     : out jump_type;
+      mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      mem_op      : out memory_op_type);
   end component Decode;
 
   component ALU is
@@ -113,22 +105,14 @@ architecture rtl of MIPS_CPU is
       rst           : in  std_logic;
       stall_req     : in  std_logic;
       alu_op        : in  alu_op_type;
-      ra            : in  unsigned(DATA_WIDTH - 1 downto 0);
-      rb            : in  unsigned(DATA_WIDTH - 1 downto 0);
-      qa            : out unsigned(DATA_WIDTH - 1 downto 0);
-      qb            : out unsigned(DATA_WIDTH - 1 downto 0);
-      i_reg1_we     : in  std_logic;
-      i_reg1_idx    : in  natural range 0 to NB_REGISTERS - 1;
-      i_reg2_we     : in  std_logic;
-      i_reg2_idx    : in  natural range 0 to NB_REGISTERS - 1;
+      i_reg1        : in  register_port_type;
+      i_reg2        : in  register_port_type;
       i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
       i_jump_op     : in  jump_type;
       i_mem_data    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
       i_mem_op      : in  memory_op_type;
-      o_reg1_we     : out std_logic;
-      o_reg1_idx    : out natural range 0 to NB_REGISTERS - 1;
-      o_reg2_we     : out std_logic;
-      o_reg2_idx    : out natural range 0 to NB_REGISTERS - 1;
+      o_reg1        : out register_port_type;
+      o_reg2        : out register_port_type;
       o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
       o_is_jump     : out std_logic;
       o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -144,20 +128,12 @@ architecture rtl of MIPS_CPU is
       clk           : in  std_logic;
       rst           : in  std_logic;
       stall_req     : in  std_logic;
-      i_reg1_we     : in  std_logic;
-      i_reg1_idx    : in  natural range 0 to NB_REGISTERS - 1;
-      i_reg1_data   : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-      i_reg2_we     : in  std_logic;
-      i_reg2_idx    : in  natural range 0 to NB_REGISTERS - 1;
-      i_reg2_data   : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+      i_reg1        : in  register_port_type;
+      i_reg2        : in  register_port_type;
       i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
       i_is_jump     : in  std_logic;
-      o_reg1_we     : out std_logic;
-      o_reg1_idx    : out natural range 0 to NB_REGISTERS - 1;
-      o_reg1_data   : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      o_reg2_we     : out std_logic;
-      o_reg2_idx    : out natural range 0 to NB_REGISTERS - 1;
-      o_reg2_data   : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      o_reg1        : out register_port_type;
+      o_reg2        : out register_port_type;
       o_is_jump     : out std_logic;
       o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0));
   end component Writeback;
@@ -171,40 +147,27 @@ architecture rtl of MIPS_CPU is
   signal alu_op              : alu_op_type;
   signal di2ex_ra            : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal di2ex_rb            : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal di2ex_reg1_we             : std_logic;
-  signal di2ex_reg1_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal di2ex_reg2_we             : std_logic;
-  signal di2ex_reg2_idx            : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal di2ex_reg1          : register_port_type;
+  signal di2ex_reg1_we       : std_logic;
+  signal di2ex_reg1_idx      : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal di2ex_reg2          : register_port_type;
+  signal di2ex_reg2_we       : std_logic;
+  signal di2ex_reg2_idx      : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
   signal stall_pc            : std_logic;
   signal jump_pc             : std_logic;
-  signal wb2di_reg1_we      : std_logic;
-  signal wb2di_reg1_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal wb2di_reg1_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
-  signal wb2di_reg2_we      : std_logic;
-  signal wb2di_reg2_idx     : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal wb2di_reg2_data    : std_logic_vector(DATA_WIDTH -1 downto 0);
-  signal di2ex_jump_target  : std_logic_vector(ADDR_WIDTH - 1 downto 0);
-  signal di2ex_jump_op      : jump_type;
-  signal di2ex_mem_data     : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal di2ex_mem_op       : memory_op_type;
+  signal wb2di_reg1          : register_port_type;
+  signal wb2di_reg2          : register_port_type;
+  signal di2ex_jump_target   : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal di2ex_jump_op       : jump_type;
+  signal di2ex_mem_data      : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal di2ex_mem_op        : memory_op_type;
 
-  signal ex2wb_reg1_we     : std_logic;
-  signal ex2wb_reg1_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal ex2wb_reg1_data   : unsigned(DATA_WIDTH -1 downto 0);
-  signal ex2wb_reg2_we     : std_logic;
-  signal ex2wb_reg2_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal ex2wb_reg2_data   : unsigned(DATA_WIDTH -1 downto 0);
+  signal ex2wb_reg1        : register_port_type;
+  signal ex2wb_reg2        : register_port_type;
   signal ex2wb_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal ex2wb_is_jump     : std_logic;
   signal ex2wb_mem_data    : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal ex2wb_mem_op      : memory_op_type;
-
-  signal rwb_reg1_we   : std_logic;
-  signal rwb_reg1_idx  : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal rwb_reg1_data : std_logic_vector(DATA_WIDTH -1 downto 0);
-  signal rwb_reg2_we   : std_logic;
-  signal rwb_reg2_idx  : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal rwb_reg2_data : std_logic_vector(DATA_WIDTH -1 downto 0);
 
   signal wb_is_jump     : std_logic;
   signal wb_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
@@ -244,28 +207,20 @@ begin  -- architecture rtl
       REG_IDX_MFLO         => 32,
       REG_IDX_MFHI         => 33)
     port map (
-      clk           => clk,
-      rst           => rst,
-      stall_req     => '0',
-      instruction   => fetched_instruction,
-      pc            => current_pc,
-      rwb_reg1_we   => wb2di_reg1_we,
-      rwb_reg1_idx  => wb2di_reg1_idx,
-      rwb_reg1_data => wb2di_reg1_data,
-      rwb_reg2_we   => wb2di_reg2_we,
-      rwb_reg2_idx  => wb2di_reg2_idx,
-      rwb_reg2_data => wb2di_reg2_data,
-      alu_op        => alu_op,
-      ra            => di2ex_ra,
-      rb            => di2ex_rb,
-      reg1_we       => di2ex_reg1_we,
-      reg1_idx      => di2ex_reg1_idx,
-      reg2_we       => di2ex_reg2_we,
-      reg2_idx      => di2ex_reg2_idx,
-      jump_target   => di2ex_jump_target,
-      jump_op       => di2ex_jump_op,
-      mem_data      => di2ex_mem_data,
-      mem_op        => di2ex_mem_op);
+      clk         => clk,
+      rst         => rst,
+      stall_req   => '0',
+      instruction => fetched_instruction,
+      pc          => current_pc,
+      i_rwb_reg1  => wb2di_reg1,
+      i_rwb_reg2  => wb2di_reg2,
+      alu_op      => alu_op,
+      o_reg1      => di2ex_reg1,
+      o_reg2      => di2ex_reg2,
+      jump_target => di2ex_jump_target,
+      jump_op     => di2ex_jump_op,
+      mem_data    => di2ex_mem_data,
+      mem_op      => di2ex_mem_op);
 
 
   ex : ALU
@@ -278,22 +233,14 @@ begin  -- architecture rtl
       rst           => rst,
       stall_req     => '0',
       alu_op        => alu_op,
-      ra            => unsigned(di2ex_ra),
-      rb            => unsigned(di2ex_rb),
-      qa            => ex2wb_reg1_data,
-      qb            => ex2wb_reg2_data,
-      i_reg1_we     => di2ex_reg1_we,
-      i_reg1_idx    => di2ex_reg1_idx,
-      i_reg2_we     => di2ex_reg2_we,
-      i_reg2_idx    => di2ex_reg2_idx,
+      i_reg1        => di2ex_reg1,
+      i_reg2        => di2ex_reg2,
       i_jump_target => di2ex_jump_target,
       i_jump_op     => di2ex_jump_op,
       i_mem_data    => di2ex_mem_data,
       i_mem_op      => di2ex_mem_op,
-      o_reg1_we     => ex2wb_reg1_we,
-      o_reg1_idx    => ex2wb_reg1_idx,
-      o_reg2_we     => ex2wb_reg2_we,
-      o_reg2_idx    => ex2wb_reg2_idx,
+      o_reg1        => ex2wb_reg1,
+      o_reg2        => ex2wb_reg2,
       o_jump_target => ex2wb_jump_target,
       o_is_jump     => ex2wb_is_jump,
       o_mem_data    => ex2wb_mem_data,
@@ -308,20 +255,12 @@ begin  -- architecture rtl
       clk           => clk,
       rst           => rst,
       stall_req     => '0',
-      i_reg1_we     => ex2wb_reg1_we,
-      i_reg1_idx    => ex2wb_reg1_idx,
-      i_reg1_data   => std_logic_vector(ex2wb_reg1_data),
-      i_reg2_we     => ex2wb_reg2_we,
-      i_reg2_idx    => ex2wb_reg2_idx,
-      i_reg2_data   => std_logic_vector(ex2wb_reg2_data),
+      i_reg1        => ex2wb_reg1,
+      i_reg2        => ex2wb_reg2,
       i_jump_target => ex2wb_jump_target,
       i_is_jump     => ex2wb_is_jump,
-      o_reg1_we     => wb2di_reg1_we,
-      o_reg1_idx    => wb2di_reg1_idx,
-      o_reg1_data   => wb2di_reg1_data,
-      o_reg2_we     => wb2di_reg2_we,
-      o_reg2_idx    => wb2di_reg2_idx,
-      o_reg2_data   => wb2di_reg2_data,
+      o_reg1        => wb2di_reg1,
+      o_reg2        => wb2di_reg2,
       o_is_jump     => wb_is_jump,
       o_jump_target => wb_jump_target);
 
