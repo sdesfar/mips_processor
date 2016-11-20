@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-13
--- Last update: 2016-11-14
+-- Last update: 2016-11-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -38,7 +38,8 @@ entity PC_Register is
     stall_pc    : in  std_logic;
     jump_pc     : in  std_logic;
     jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    current_pc  : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
+    current_pc  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    next_pc     : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
     );
 
 end entity PC_Register;
@@ -59,7 +60,6 @@ architecture rtl of PC_Register is
   -- Internal signal declarations
   -----------------------------------------------------------------------------
   signal pc         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
-  signal next_pc    : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal pc_stepped : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
 begin  -- architecture rtl
@@ -91,6 +91,7 @@ begin  -- architecture rtl
   end process;
 
   current_pc <= pc;
+  next_pc    <= pc_stepped;
 
 end architecture rtl;
 

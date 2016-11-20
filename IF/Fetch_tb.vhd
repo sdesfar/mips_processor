@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-12
+-- Last update: 2016-11-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -21,6 +21,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 -------------------------------------------------------------------------------
 
@@ -32,14 +33,11 @@ end entity Fetch_tb;
 
 architecture rtl of Fetch_tb is
 
+  -- component generics
+  constant ADDR_WIDTH : integer := 32;
+  constant DATA_WIDTH : integer := 32;
+
   -- component ports
-  component Fetch
-    port (
-      clk         : in  std_logic;
-      rst         : in  std_logic;
-      instruction : out std_logic_vector(31 downto 0)
-      );
-  end component;
 
   -- clock
   signal Clk : std_logic := '1';
@@ -47,26 +45,79 @@ architecture rtl of Fetch_tb is
   signal Rst : std_logic := '1';
 
   signal instruction : std_logic_vector(31 downto 0);
+  signal pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0) := std_logic_vector(to_unsigned(0, ADDR_WIDTH));
+  signal next_pc     : std_logic_vector(ADDR_WIDTH - 1 downto 0) := std_logic_vector(to_unsigned(4, ADDR_WIDTH));
+  signal stall_req   : std_logic                                 := '0';
+  signal stall_pc    : std_logic                                 := '0';
 
-begin  -- architecture test
+  -- L2 connections
+  signal o_L2c_req       : std_logic;
+  signal o_L2c_addr      : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal i_L2c_read_data : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal i_L2c_valid     : std_logic;
+
+begin  -- architecture rtl
 
   -- component instantiation
-  dut : Fetch
-    port map (clk         => Clk,
-              rst         => Rst,
-              instruction => instruction);
+  dut : entity work.Fetch
+    generic map (
+      ADDR_WIDTH => ADDR_WIDTH,
+      DATA_WIDTH => DATA_WIDTH)
+    port map (
+      clk             => Clk,
+      rst             => Rst,
+      stall_req       => '0',
+      pc              => pc,
+      next_pc         => next_pc,
+      instruction     => instruction,
+      do_stall_pc     => stall_pc,
+      o_L2c_req       => o_L2c_req,
+      o_L2c_addr      => o_L2c_addr,
+      i_L2c_read_data => i_L2c_read_data,
+      i_L2c_valid     => i_L2c_valid);
+
+  Simulated_Memory_1 : entity work.Simulated_Memory
+    generic map (
+      ADDR_WIDTH     => ADDR_WIDTH,
+      DATA_WIDTH     => DATA_WIDTH,
+      MEMORY_LATENCY => 3)
+    port map (
+      clk                 => Clk,
+      rst                 => Rst,
+      i_memory_req        => o_L2c_req,
+      i_memory_we         => '0',
+      i_memory_addr       => o_L2c_addr,
+      i_memory_write_data => (others => 'X'),
+      o_memory_read_data  => i_L2c_read_data,
+      o_memory_valid      => i_L2c_valid);
+
+  PC_Register_1 : entity work.PC_Register
+    generic map (
+      ADDR_WIDTH => ADDR_WIDTH,
+      STEP       => 4)
+    port map (
+      clk         => Clk,
+      rst         => Rst,
+      stall_pc    => stall_pc,
+      jump_pc     => '0',
+      jump_target => pc,
+      current_pc  => pc,
+      next_pc     => next_pc);
 
   -- reset
-  Rst <= '0' after 24 ns;
+  Rst <= '0'     after 12 ps;
   -- clock generation
-  Clk <= not Clk after 10 ns;
+  Clk <= not Clk after 5 ps;
 
   -- waveform generation
   WaveGen_Proc : process
+    variable nb_clks : integer := 0;
   begin
     -- insert signal assignments here
 
     wait until Clk = '1';
+    nb_clks := nb_clks + 1;
+
   end process WaveGen_Proc;
 
 end architecture rtl;

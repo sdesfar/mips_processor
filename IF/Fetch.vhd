@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-11-14
+-- Last update: 2016-11-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -33,11 +33,18 @@ entity Fetch is
     );
 
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;
-    stall_req   : in  std_logic;
-    pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    instruction : out std_logic_vector(DATA_WIDTH - 1 downto 0)
+    clk             : in  std_logic;
+    rst             : in  std_logic;
+    stall_req       : in  std_logic;
+    pc              : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    next_pc         : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    instruction     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+    do_stall_pc     : out std_logic;
+    -- L2 connections
+    o_L2c_req       : out std_logic;
+    o_L2c_addr      : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_L2c_read_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    i_L2c_valid     : in  std_logic
     );
 
 end entity Fetch;
@@ -49,19 +56,28 @@ architecture rtl of Fetch is
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
-  signal l1c_data : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  constant nop_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0) := (others => '0');
+  signal l1c_data          : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal l1c_data_valid    : std_logic;
+
 begin  -- architecture rtl
   l1c : entity work.Instruction_Cache(rtl) port map (
-    clk  => clk,
-    pc   => pc,
-    data => l1c_data
+    clk             => clk,
+    rst             => rst,
+    pc              => pc,
+    next_pc         => next_pc,
+    stall_req       => stall_req,
+    data            => l1c_data,
+    data_valid      => l1c_data_valid,
+    o_L2c_req       => o_L2c_req,
+    o_L2c_addr      => o_L2c_addr,
+    i_L2c_read_data => i_L2c_read_data,
+    i_L2c_valid     => i_L2c_valid
     );
-  process(rst, clk)
-  begin
-    if rst = '0' and stall_req = '0' and rising_edge(clk) then
-      instruction <= l1c_data;
-    end if;
-  end process;
+
+  instruction <= l1c_data when stall_req = '0' and l1c_data_valid = '1' and rst = '0' else nop_instruction;
+  do_stall_pc <= '1'      when stall_req = '1' or l1c_data_valid = '0'  else '0';
+
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
