@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-18
+-- Last update: 2016-11-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -37,8 +37,13 @@ entity MIPS_CPU is
     );
 
   port (
-    clk : in std_logic;
-    rst : in std_logic
+    clk             : in  std_logic;
+    rst             : in  std_logic;
+    -- L2 cache lines
+    o_L2c_req       : out std_logic;
+    o_L2c_addr      : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_L2c_read_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    i_L2c_valid     : in  std_logic
     );
 
 end entity MIPS_CPU;
@@ -57,17 +62,26 @@ architecture rtl of MIPS_CPU is
       stall_pc    : in  std_logic;
       jump_pc     : in  std_logic;
       jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      current_pc  : out std_logic_vector(ADDR_WIDTH - 1 downto 0));
+      current_pc  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      next_pc     : out std_logic_vector(ADDR_WIDTH - 1 downto 0));
   end component PC_Register;
 
-  component Fetch
+  component Fetch is
+    generic (
+      ADDR_WIDTH : integer;
+      DATA_WIDTH : integer);
     port (
-      clk         : in  std_logic;
-      rst         : in  std_logic;
-      stall_req   : in  std_logic;
-      pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      instruction : out std_logic_vector(DATA_WIDTH - 1 downto 0)
-      );
+      clk             : in  std_logic;
+      rst             : in  std_logic;
+      stall_req       : in  std_logic;
+      pc              : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      next_pc         : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      instruction     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+      do_stall_pc     : out std_logic;
+      o_L2c_req       : out std_logic;
+      o_L2c_addr      : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+      i_L2c_read_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+      i_L2c_valid     : in  std_logic);
   end component Fetch;
 
   component Decode is
@@ -142,8 +156,10 @@ architecture rtl of MIPS_CPU is
   -- Internal signal declarations
   -----------------------------------------------------------------------------
   signal current_pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal next_pc             : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal jump_target         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal fetch_stalls_pc     : std_logic;
   signal alu_op              : alu_op_type;
   signal di2ex_ra            : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal di2ex_rb            : std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -153,7 +169,6 @@ architecture rtl of MIPS_CPU is
   signal di2ex_reg2          : register_port_type;
   signal di2ex_reg2_we       : std_logic;
   signal di2ex_reg2_idx      : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
-  signal stall_pc            : std_logic;
   signal jump_pc             : std_logic;
   signal wb2di_reg1          : register_port_type;
   signal wb2di_reg2          : register_port_type;
@@ -184,19 +199,28 @@ begin  -- architecture rtl
     port map (
       clk         => clk,
       rst         => rst,
-      stall_pc    => stall_pc,
+      stall_pc    => fetch_stalls_pc,
       jump_pc     => wb_is_jump,
       jump_target => wb_jump_target,
-      current_pc  => current_pc);
+      current_pc  => current_pc,
+      next_pc     => next_pc);
 
   ife : Fetch
+    generic map (
+      ADDR_WIDTH => ADDR_WIDTH,
+      DATA_WIDTH => DATA_WIDTH)
     port map (
-      clk         => clk,
-      rst         => rst,
-      stall_req   => '0',
-      pc          => current_pc,
-      instruction => fetched_instruction
-      );
+      clk             => clk,
+      rst             => rst,
+      stall_req       => '0',
+      pc              => current_pc,
+      next_pc         => next_pc,
+      instruction     => fetched_instruction,
+      do_stall_pc     => fetch_stalls_pc,
+      o_L2c_req       => o_L2c_req,
+      o_L2c_addr      => o_L2c_addr,
+      i_L2c_read_data => i_L2c_read_data,
+      i_L2c_valid     => i_L2c_valid);
 
   di : Decode
     generic map (
@@ -263,8 +287,6 @@ begin  -- architecture rtl
       o_reg2        => wb2di_reg2,
       o_is_jump     => wb_is_jump,
       o_jump_target => wb_jump_target);
-
-  stall_pc <= '0';
 
 end architecture rtl;
 

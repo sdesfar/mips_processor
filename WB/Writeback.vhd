@@ -58,6 +58,10 @@ architecture rtl of Writeback is
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
+  signal reg1        : register_port_type;
+  signal reg2        : register_port_type;
+  signal is_jump     : std_logic;
+  signal jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
 begin  -- architecture rtl
 
@@ -68,17 +72,31 @@ begin  -- architecture rtl
   process(rst, clk, stall_req)
   begin
     if rst = '1' then
-      o_reg1.we <= '0';
-      o_reg2.we <= '0';
-      o_is_jump <= '0';
-    elsif stall_req = '0' and rising_edge(clk) then
-      o_is_jump     <= i_is_jump;
-      o_jump_target <= i_jump_target;
+      reg1.we <= '0';
+      reg2.we <= '0';
+      is_jump <= '0';
+    elsif rising_edge(clk) then
+      if stall_req = '0' then
+        is_jump     <= i_is_jump;
+        jump_target <= i_jump_target;
 
-      o_reg1 <= i_reg1;
-      o_reg2 <= i_reg2;
+        reg1 <= i_reg1;
+        reg2 <= i_reg2;
+      else
+        is_jump <= '0';
+        reg1.we <= '0';
+        reg1.data <= (others => 'X');
+        reg2.we <= '0';
+        reg2.data <= (others => 'X');
+      end if;
     end if;
   end process;
+
+  o_reg1        <= reg1;
+  o_reg2        <= reg2;
+  o_is_jump     <= is_jump;
+  o_jump_target <= jump_target when is_jump = '1' else (others => 'X');
+
 end architecture rtl;
 
 -------------------------------------------------------------------------------

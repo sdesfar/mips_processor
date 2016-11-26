@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik (Intel)  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-16
--- Last update: 2016-11-18
+-- Last update: 2016-11-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -60,8 +60,8 @@ end entity ALU;
 -------------------------------------------------------------------------------
 
 architecture rtl of ALU is
-  alias ra : unsigned(DATA_WIDTH - 1 downto 0) is unsigned(i_reg1.data);
-  alias rb : unsigned(DATA_WIDTH - 1 downto 0) is unsigned(i_reg2.data);
+  signal ra : unsigned(DATA_WIDTH - 1 downto 0);
+  signal rb : unsigned(DATA_WIDTH - 1 downto 0);
 
   -----------------------------------------------------------------------------
   -- Internal signal declarations
@@ -156,7 +156,7 @@ begin  -- architecture rtl
           q(DATA_WIDTH - 1 downto 0) <= ra nor rb;
         when slt =>
           if unsigned(ra) < unsigned(rb) then
-            q(DATA_WIDTH - 1 downto 0) <= (0 => '1', others => '0');
+            q(DATA_WIDTH - 1 downto 0) <= to_unsigned(1, DATA_WIDTH);
           else
             q(DATA_WIDTH - 1 downto 0) <= (others => '0');
           end if;
@@ -174,6 +174,8 @@ begin  -- architecture rtl
     end if;
   end process;
 
+  ra          <= unsigned(i_reg1.data);
+  rb          <= unsigned(i_reg2.data);
   o_reg1.data <= std_logic_vector(q(DATA_WIDTH -1 downto 0));
   o_reg2.data <= std_logic_vector(q(DATA_WIDTH * 2 -1 downto DATA_WIDTH));
   cond_zero   <= '1' when unsigned(q) = to_unsigned(0, DATA_WIDTH);

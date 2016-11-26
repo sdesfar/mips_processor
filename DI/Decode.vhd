@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-18
+-- Last update: 2016-11-26
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -83,6 +83,7 @@ entity Decode is
   constant op_j    : std_logic_vector(5 downto 0) := "000001";
   constant op_jalr : std_logic_vector(5 downto 0) := "000011";
 
+  constant func_nop  : std_logic_vector(5 downto 0) := "000000";
   constant func_mul  : std_logic_vector(5 downto 0) := "011000";
   constant func_mulu : std_logic_vector(5 downto 0) := "011001";
   constant func_div  : std_logic_vector(5 downto 0) := "011010";
@@ -149,6 +150,9 @@ architecture rtl of Decode is
   signal is_jump      : std_logic;
   signal is_rtype     : std_logic;
   signal is_memory    : std_logic;
+  -- Converters of register indexes from natural unbound to 0..NB_REGISTERS-1 range
+  signal o_reg1_idx   : natural range 0 to NB_REGISTERS - 1;
+  signal o_reg2_idx   : natural range 0 to NB_REGISTERS - 1;
 
   -----------------------------------------------------------------------------
   -- Internal decoder procedures
@@ -216,6 +220,7 @@ architecture rtl of Decode is
     signal op_code      : in  std_logic_vector(5 downto 0);
     signal immediate    : in  signed(DATA_WIDTH / 2 - 1 downto 0);
     signal rs           : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    signal rti          : in  natural range 0 to NB_REGISTERS - 1;
     signal decode_error : out std_logic;
     signal alu_op       : out alu_op_type;
     signal ra           : out std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -234,7 +239,7 @@ architecture rtl of Decode is
     rb(DATA_WIDTH - 1 downto DATA_WIDTH / 2) <= std_logic_vector(to_unsigned(0, DATA_WIDTH / 2));
     rb(DATA_WIDTH / 2 -1 downto 0)           <= std_logic_vector(immediate);
     reg1_we                                  <= '1';
-    reg1_idx                                 <= to_integer(unsigned(instruction(15 downto 11)));
+    reg1_idx                                 <= rti;
     reg2_we                                  <= '0';
     if (op_code = op_addi) then
       alu_op <= add;
@@ -290,6 +295,14 @@ architecture rtl of Decode is
       reg2_we      <= '0';
       jump_target  <= rs;
       jump_op      <= always;
+    elsif func = func_nop then
+      decode_error <= '0';
+      alu_op       <= all_zero;
+      reg1_we      <= '0';
+      reg2_we      <= '0';
+      jump_op      <= none;
+      ra           <= (others => 'X');
+      rb           <= (others => 'X');
     else
       ra      <= rs;
       rb      <= rt;
@@ -323,7 +336,7 @@ architecture rtl of Decode is
         jump_op      <= none;
       elsif func = func_slt or func = func_sltu then
         decode_error <= '0';
-        reg1_idx     <= rdi;
+        reg1_idx     <= rti;
         reg2_we      <= '0';
         alu_op       <= slt;
         jump_op      <= none;
@@ -496,31 +509,34 @@ begin  -- architecture rtl
       rwb_reg2_data => i_rwb_reg2.data
       );
 
-  process(rst, clk, stall_req, is_branch, is_immediate, is_rtype, is_jump)
+  process(rst, clk, stall_req, is_branch, is_immediate, is_rtype, is_jump, o_reg1_idx, o_reg2_idx)
   begin
     if rst = '1' then
       do_reset(decode_error, alu_op, ra, rb, jump_target, jump_op, mem_op);
     elsif stall_req = '0' and rising_edge(clk) then
       if is_branch = '1' then
         do_branch(op_code, pc, immediate, rs, rt,
-                  decode_error, alu_op, ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
+                  decode_error, alu_op, ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif is_immediate = '1' then
-        do_immediate(op_code, immediate, rs,
-                     decode_error, alu_op, ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
+        do_immediate(op_code, immediate, rs, rti,
+                     decode_error, alu_op, ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif is_rtype = '1' then
         do_rtype(op_code, func, pc, rs, rt, rdi,
-                 decode_error, alu_op, ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, o_reg2.idx, jump_target, jump_op, mem_op);
+                 decode_error, alu_op, ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, o_reg2_idx, jump_target, jump_op, mem_op);
       elsif is_jump = '1' then
         do_jump(op_code, pc, pc_displace, decode_error, alu_op,
-                ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
+                ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif is_memory = '1' then
         do_memory(op_code, rs, rt, rti, immediate, decode_error, alu_op,
-                  ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
+                  ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif op_code = op_lui then
         do_lui(rt, immediate, decode_error, alu_op,
-               ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op);
+               ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
       end if;
     end if;
+
+    o_reg1.idx  <= o_reg1_idx;
+    o_reg2.idx  <= o_reg2_idx;
   end process;
 
   op_code <= instruction(31 downto 26);
@@ -537,21 +553,21 @@ begin  -- architecture rtl
                   (op_code = op_lw) or
                   (op_code = op_lbu) or
                   (op_code = op_sb) or
-                  (op_code = op_sw);
+                  (op_code = op_sw) else '0';
   is_branch <= '1' when
                (op_code = op_beq) or
                (op_code = op_bne) or
                (op_code = op_blez) or
                (op_code = op_bgtz) or
-               (op_code = op_bltz);
-  is_rtype  <= '1' when (op_code = op_rtype);
-  is_jump   <= '1' when (op_code = op_j or op_code = op_jalr);
+               (op_code = op_bltz) else '0';
+  is_rtype  <= '1' when (op_code = op_rtype)                  else '0';
+  is_jump   <= '1' when (op_code = op_j or op_code = op_jalr) else '0';
   is_memory <= '1' when (op_code = op_lui) or
                (op_code = op_lb) or
                (op_code = op_lw) or
                (op_code = op_lbu) or
                (op_code = op_sb) or
-               (op_code = op_sw);
+               (op_code = op_sw) else '0';
 
 end architecture rtl;
 
