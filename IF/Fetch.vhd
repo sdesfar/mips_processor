@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-11-26
+-- Last update: 2016-11-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -33,13 +33,16 @@ entity Fetch is
     );
 
   port (
-    clk             : in  std_logic;
-    rst             : in  std_logic;
-    stall_req       : in  std_logic;
-    pc              : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    next_pc         : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    instruction     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    do_stall_pc     : out std_logic;
+    clk       : in std_logic;
+    rst       : in std_logic;
+    stall_req : in std_logic;           -- stall current instruction
+    kill_req  : in std_logic;           -- kill current instruction
+
+    i_pc            : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_next_pc       : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_next_next_pc  : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_instruction   : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+    o_do_stall_pc   : out std_logic;
     -- L2 connections
     o_L2c_req       : out std_logic;
     o_L2c_addr      : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
@@ -57,26 +60,74 @@ architecture rtl of Fetch is
   -- Internal signal declarations
   -----------------------------------------------------------------------------
   constant nop_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0) := (others => '0');
+  signal l1c_addr          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal l1c_data          : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal l1c_data_valid    : std_logic;
 
+  signal current_pc          : std_logic_vector(ADDR_WIDTH -1 downto 0);
+  signal current_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal current_valid       : boolean;
+  signal next_pc             : std_logic_vector(ADDR_WIDTH -1 downto 0);
+  signal next_next_pc        : std_logic_vector(ADDR_WIDTH -1 downto 0);
+  signal next_instruction    : std_logic_vector(DATA_WIDTH - 1 downto 0);
 begin  -- architecture rtl
   l1c : entity work.Instruction_Cache(rtl) port map (
     clk             => clk,
     rst             => rst,
-    pc              => pc,
-    next_pc         => next_pc,
-    stall_req       => stall_req,
+    -- cache query and response
+    addr            => l1c_addr,
     data            => l1c_data,
     data_valid      => l1c_data_valid,
+    -- signal carry over L2 connections
     o_L2c_req       => o_L2c_req,
     o_L2c_addr      => o_L2c_addr,
     i_L2c_read_data => i_L2c_read_data,
     i_L2c_valid     => i_L2c_valid
     );
 
-  instruction <= l1c_data when stall_req = '0' and l1c_data_valid = '1' and rst = '0' else nop_instruction;
-  do_stall_pc <= '1'      when stall_req = '1' or l1c_data_valid = '0'  else '0';
+  process(clk, rst)
+  begin
+    if rst = '1' then
+      current_valid       <= false;
+      current_instruction <= (others => 'X');
+    elsif rising_edge(clk) then
+      if kill_req = '1' then
+        current_instruction <= nop_instruction;
+      elsif stall_req = '1' then
+        current_instruction <= nop_instruction;
+      else
+        if current_valid and l1c_data_valid = '0' then
+          current_valid       <= false;
+          current_instruction <= nop_instruction;
+        end if;
+
+        if current_valid and l1c_data_valid = '1' then
+          current_valid       <= true;
+          current_instruction <= l1c_data;
+        end if;
+
+        if not current_valid and l1c_data_valid = '0' then
+          current_valid       <= false;
+          current_instruction <= nop_instruction;
+        end if;
+
+        if not current_valid and l1c_data_valid = '1' then
+          current_valid       <= true;
+          current_instruction <= l1c_data;
+        end if;
+
+      end if;
+    end if;
+
+  end process;
+
+  o_instruction <= current_instruction;
+  current_pc    <= i_pc;
+  next_pc       <= i_next_pc;
+  next_next_pc  <= i_next_next_pc;
+  l1c_addr      <= next_pc when l1c_data_valid = '0' else next_next_pc;
+
+  o_do_stall_pc <= '0' when l1c_data_valid = '1' else '1';
 
   -----------------------------------------------------------------------------
   -- Component instantiations

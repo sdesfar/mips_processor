@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-26
+-- Last update: 2016-11-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -44,11 +44,12 @@ architecture rtl of Fetch_tb is
   -- reset
   signal Rst : std_logic := '1';
 
-  signal instruction : std_logic_vector(31 downto 0);
-  signal pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0) := std_logic_vector(to_unsigned(0, ADDR_WIDTH));
-  signal next_pc     : std_logic_vector(ADDR_WIDTH - 1 downto 0) := std_logic_vector(to_unsigned(4, ADDR_WIDTH));
-  signal stall_req   : std_logic                                 := '0';
-  signal stall_pc    : std_logic                                 := '0';
+  signal instruction  : std_logic_vector(31 downto 0);
+  signal pc           : std_logic_vector(ADDR_WIDTH - 1 downto 0) := std_logic_vector(to_unsigned(0, ADDR_WIDTH));
+  signal next_pc      : std_logic_vector(ADDR_WIDTH - 1 downto 0) := std_logic_vector(to_unsigned(4, ADDR_WIDTH));
+  signal next_next_pc : std_logic_vector(ADDR_WIDTH - 1 downto 0) := std_logic_vector(to_unsigned(4, ADDR_WIDTH));
+  signal stall_req    : std_logic                                 := '0';
+  signal stall_pc     : std_logic                                 := '0';
 
   -- L2 connections
   signal o_L2c_req       : std_logic;
@@ -67,10 +68,12 @@ begin  -- architecture rtl
       clk             => Clk,
       rst             => Rst,
       stall_req       => '0',
-      pc              => pc,
-      next_pc         => next_pc,
-      instruction     => instruction,
-      do_stall_pc     => stall_pc,
+      kill_req        => '0',
+      i_pc            => pc,
+      i_next_pc       => next_pc,
+      i_next_next_pc  => next_next_pc,
+      o_instruction   => instruction,
+      o_do_stall_pc   => stall_pc,
       o_L2c_req       => o_L2c_req,
       o_L2c_addr      => o_L2c_addr,
       i_L2c_read_data => i_L2c_read_data,
@@ -96,13 +99,14 @@ begin  -- architecture rtl
       ADDR_WIDTH => ADDR_WIDTH,
       STEP       => 4)
     port map (
-      clk         => Clk,
-      rst         => Rst,
-      stall_pc    => stall_pc,
-      jump_pc     => '0',
-      jump_target => pc,
-      current_pc  => pc,
-      next_pc     => next_pc);
+      clk            => Clk,
+      rst            => Rst,
+      stall_pc       => stall_pc,
+      jump_pc        => '0',
+      jump_target    => pc,
+      o_current_pc   => pc,
+      o_next_pc      => next_pc,
+      o_next_next_pc => next_next_pc);
 
   -- reset
   Rst <= '0'     after 12 ps;

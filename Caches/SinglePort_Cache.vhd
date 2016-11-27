@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-19
--- Last update: 2016-11-26
+-- Last update: 2016-11-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ begin  -- architecture str
           memory_ongoing    <= false;
           cache_data        <= i_memory_read_data;
           cache_initialized <= true;
-          if not (i_porta_req = '1' and (not cache_initialized or cache_addr /= i_porta_addr)) then
+          if not (i_porta_req = '1' and (cache_addr /= i_porta_addr)) then
             cache_valid <= true;
           end if;
         -- In parallel, o_porta_valid will become '1'

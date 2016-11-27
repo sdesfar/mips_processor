@@ -37,7 +37,8 @@ entity Writeback is
   port (
     clk           : in std_logic;
     rst           : in std_logic;
-    stall_req     : in std_logic;
+    stall_req     : in std_logic;       -- stall current instruction
+    kill_req      : in std_logic;       -- kill current instruction
     i_reg1        : in register_port_type;
     i_reg2        : in register_port_type;
     i_jump_target : in std_logic_vector(ADDR_WIDTH - 1 downto 0);
@@ -76,17 +77,21 @@ begin  -- architecture rtl
       reg2.we <= '0';
       is_jump <= '0';
     elsif rising_edge(clk) then
-      if stall_req = '0' then
+      if kill_req = '1' then
+        reg1.we <= '0';
+        reg2.we <= '0';
+        is_jump <= '0';
+      elsif stall_req = '0' then
         is_jump     <= i_is_jump;
         jump_target <= i_jump_target;
 
         reg1 <= i_reg1;
         reg2 <= i_reg2;
       else
-        is_jump <= '0';
-        reg1.we <= '0';
+        is_jump   <= '0';
+        reg1.we   <= '0';
         reg1.data <= (others => 'X');
-        reg2.we <= '0';
+        reg2.we   <= '0';
         reg2.data <= (others => 'X');
       end if;
     end if;

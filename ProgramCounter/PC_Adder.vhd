@@ -46,6 +46,7 @@ architecture rtl of PC_Adder is
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
+  signal stepper : unsigned(ADDR_WIDTH - 1 downto 0);
 
 begin  -- architecture rtl
 
@@ -53,7 +54,8 @@ begin  -- architecture rtl
   -- Component instantiations
   -----------------------------------------------------------------------------
 
-  next_pc <= std_logic_vector(unsigned(current_pc) + STEP);
+  stepper <= unsigned(to_signed(STEP, ADDR_WIDTH));
+  next_pc <= std_logic_vector(unsigned(current_pc) + stepper);
 
 end architecture rtl;
 

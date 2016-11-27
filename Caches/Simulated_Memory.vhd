@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-20
--- Last update: 2016-11-21
+-- Last update: 2016-11-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -56,21 +56,21 @@ architecture rtl of Simulated_Memory is
   -----------------------------------------------------------------------------
   type memory is array(0 to 15) of std_logic_vector(DATA_WIDTH - 1 downto 0);
   constant rom : memory := (
-    X"2C820002",  --  0:        2c820002        sltiu   v0,a0,2
-    X"1440000B",  --  4:        1440000b        bnez    v0,34 <fibo_flat+0x34>
-    x"24030001",  --  8:        24030001        li      v1,1
-    x"00003021",  --  c:        00003021        move    a2,zero
-    x"08000007",  -- 10:        08000007        j       1c <fibo_flat+0x1c>
-    x"24050001",  -- 14:        24050001        li      a1,1
-    x"00402821",  -- 18:        00402821        move    a1,v0
-    x"24630001",  -- 1c:        24630001        addiu   v1,v1,1
-    X"00C51021",  -- 20:        00c51021        addu    v0,a2,a1
-    X"1464FFFC",  -- 24:        1464fffc        bne     v1,a0,18 <fibo_flat+0x18>
-    X"00A03021",  -- 28:        00a03021        move    a2,a1
-    X"03E00008",  -- 2c:        03e00008        jr      ra
-    x"00200825",  -- 30:        00200825        move    at,at
-    X"03E00008",  -- 34:        03e00008        jr      ra
-    x"00801021",  -- 38:        00801021        move    v0,a0
+    x"24030008",  --    0:      24030008        li      v1,8
+    x"00002821",  --    4:      00002821        move    a1,zero
+    x"08000005",  --    8:      08000005        j       14 <fibo_flat+0x14>
+    x"24040001",  --    c:      24040001        li      a0,1
+    x"00402021",  --   10:      00402021        move    a0,v0
+    x"2463ffff",  --   14:      2463ffff        addiu   v1,v1,-1
+    x"00a41021",  --   18:      00a41021        addu    v0,a1,a0
+    x"1460fffc",  --   1c:      1460fffc        bnez    v1,10 <fibo_flat+0x10>
+    x"00802821",  --   20:      00802821        move    a1,a0
+    x"03e00008",  --   24:      03e00008        jr      ra
+    x"00200825",  --   28:      00200825        move    at,at
+    x"00000000",
+    x"00000000",
+    x"00000000",
+    x"00000000",
     x"00000000"
     );
 
@@ -89,15 +89,15 @@ begin  -- architecture rtl
   begin
     if rst = '0' and rising_edge(clk) then
       if not requested and i_memory_req = '1' then
-        requested    <= true;
+        requested <= true;
         if MEMORY_LATENCY > 1 then
           latency_finshed_wait <= false;
-          request_addr <= i_memory_addr;
-          wait_clk     := MEMORY_LATENCY - 1;
+          request_addr         <= i_memory_addr;
+          wait_clk             := MEMORY_LATENCY - 1;
         else
           latency_finshed_wait <= true;
-          request_addr <= i_memory_addr;
-          wait_clk := 0;
+          request_addr         <= i_memory_addr;
+          wait_clk             := 0;
         end if;
       elsif requested and wait_clk > 0 then
         wait_clk             := wait_clk - 1;

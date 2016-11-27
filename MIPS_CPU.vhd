@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-26
+-- Last update: 2016-11-27
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -52,111 +52,12 @@ end entity MIPS_CPU;
 
 architecture rtl of MIPS_CPU is
 
-  component PC_Register is
-    generic (
-      ADDR_WIDTH : integer;
-      STEP       : integer);
-    port (
-      clk         : in  std_logic;
-      rst         : in  std_logic;
-      stall_pc    : in  std_logic;
-      jump_pc     : in  std_logic;
-      jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      current_pc  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      next_pc     : out std_logic_vector(ADDR_WIDTH - 1 downto 0));
-  end component PC_Register;
-
-  component Fetch is
-    generic (
-      ADDR_WIDTH : integer;
-      DATA_WIDTH : integer);
-    port (
-      clk             : in  std_logic;
-      rst             : in  std_logic;
-      stall_req       : in  std_logic;
-      pc              : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      next_pc         : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      instruction     : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      do_stall_pc     : out std_logic;
-      o_L2c_req       : out std_logic;
-      o_L2c_addr      : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      i_L2c_read_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-      i_L2c_valid     : in  std_logic);
-  end component Fetch;
-
-  component Decode is
-    generic (
-      ADDR_WIDTH           : integer;
-      DATA_WIDTH           : integer;
-      NB_REGISTERS         : positive;
-      NB_REGISTERS_SPECIAL : positive;
-      REG_IDX_MFLO         : natural;
-      REG_IDX_MFHI         : natural);
-    port (
-      clk         : in  std_logic;
-      rst         : in  std_logic;
-      stall_req   : in  std_logic;
-      instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-      pc          : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      i_rwb_reg1  : in  register_port_type;
-      i_rwb_reg2  : in  register_port_type;
-      alu_op      : out alu_op_type;
-      o_reg1      : out register_port_type;
-      o_reg2      : out register_port_type;
-      jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      jump_op     : out jump_type;
-      mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      mem_op      : out memory_op_type);
-  end component Decode;
-
-  component ALU is
-    generic (
-      ADDR_WIDTH   : integer;
-      DATA_WIDTH   : integer;
-      NB_REGISTERS : positive);
-    port (
-      clk           : in  std_logic;
-      rst           : in  std_logic;
-      stall_req     : in  std_logic;
-      alu_op        : in  alu_op_type;
-      i_reg1        : in  register_port_type;
-      i_reg2        : in  register_port_type;
-      i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      i_jump_op     : in  jump_type;
-      i_mem_data    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-      i_mem_op      : in  memory_op_type;
-      o_reg1        : out register_port_type;
-      o_reg2        : out register_port_type;
-      o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      o_is_jump     : out std_logic;
-      o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-      o_mem_op      : out memory_op_type);
-  end component ALU;
-
-  component Writeback is
-    generic (
-      ADDR_WIDTH   : integer;
-      DATA_WIDTH   : integer;
-      NB_REGISTERS : positive);
-    port (
-      clk           : in  std_logic;
-      rst           : in  std_logic;
-      stall_req     : in  std_logic;
-      i_reg1        : in  register_port_type;
-      i_reg2        : in  register_port_type;
-      i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-      i_is_jump     : in  std_logic;
-      o_reg1        : out register_port_type;
-      o_reg2        : out register_port_type;
-      o_is_jump     : out std_logic;
-      o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0));
-  end component Writeback;
-
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
   signal current_pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal next_pc             : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal next_next_pc        : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal jump_target         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal fetch_stalls_pc     : std_logic;
@@ -184,28 +85,33 @@ architecture rtl of MIPS_CPU is
   signal ex2wb_mem_data    : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal ex2wb_mem_op      : memory_op_type;
 
-  signal wb_is_jump     : std_logic;
-  signal wb_jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal wb_is_jump        : std_logic;
+  signal wb_jump_target    : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal wb_kills_pipeline : std_logic;
+
+  signal debug_fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal debug_fetched_pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
 begin  -- architecture rtl
 
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
-  pc_reg : PC_Register
+  pc_reg : entity work.PC_Register
     generic map (
       ADDR_WIDTH => ADDR_WIDTH,
       STEP       => 4)
     port map (
-      clk         => clk,
-      rst         => rst,
-      stall_pc    => fetch_stalls_pc,
-      jump_pc     => wb_is_jump,
-      jump_target => wb_jump_target,
-      current_pc  => current_pc,
-      next_pc     => next_pc);
+      clk            => clk,
+      rst            => rst,
+      stall_pc       => fetch_stalls_pc,
+      jump_pc        => wb_is_jump,
+      jump_target    => wb_jump_target,
+      o_current_pc   => current_pc,
+      o_next_pc      => next_pc,
+      o_next_next_pc => next_next_pc);
 
-  ife : Fetch
+  ife : entity work.Fetch
     generic map (
       ADDR_WIDTH => ADDR_WIDTH,
       DATA_WIDTH => DATA_WIDTH)
@@ -213,16 +119,18 @@ begin  -- architecture rtl
       clk             => clk,
       rst             => rst,
       stall_req       => '0',
-      pc              => current_pc,
-      next_pc         => next_pc,
-      instruction     => fetched_instruction,
-      do_stall_pc     => fetch_stalls_pc,
+      kill_req        => wb_kills_pipeline,
+      i_pc            => current_pc,
+      i_next_pc       => next_pc,
+      i_next_next_pc  => next_next_pc,
+      o_instruction   => fetched_instruction,
+      o_do_stall_pc   => fetch_stalls_pc,
       o_L2c_req       => o_L2c_req,
       o_L2c_addr      => o_L2c_addr,
       i_L2c_read_data => i_L2c_read_data,
       i_L2c_valid     => i_L2c_valid);
 
-  di : Decode
+  di : entity work.Decode
     generic map (
       ADDR_WIDTH           => ADDR_WIDTH,
       DATA_WIDTH           => DATA_WIDTH,
@@ -234,8 +142,9 @@ begin  -- architecture rtl
       clk         => clk,
       rst         => rst,
       stall_req   => '0',
+      kill_req    => wb_kills_pipeline,
       instruction => fetched_instruction,
-      pc          => current_pc,
+      next_pc     => next_pc,
       i_rwb_reg1  => wb2di_reg1,
       i_rwb_reg2  => wb2di_reg2,
       alu_op      => alu_op,
@@ -247,7 +156,7 @@ begin  -- architecture rtl
       mem_op      => di2ex_mem_op);
 
 
-  ex : ALU
+  ex : entity work.ALU
     generic map (
       ADDR_WIDTH   => ADDR_WIDTH,
       DATA_WIDTH   => DATA_WIDTH,
@@ -256,6 +165,7 @@ begin  -- architecture rtl
       clk           => clk,
       rst           => rst,
       stall_req     => '0',
+      kill_req      => wb_kills_pipeline,
       alu_op        => alu_op,
       i_reg1        => di2ex_reg1,
       i_reg2        => di2ex_reg2,
@@ -270,7 +180,7 @@ begin  -- architecture rtl
       o_mem_data    => ex2wb_mem_data,
       o_mem_op      => ex2wb_mem_op);
 
-  wb : Writeback
+  wb : entity work.Writeback
     generic map (
       ADDR_WIDTH   => ADDR_WIDTH,
       DATA_WIDTH   => DATA_WIDTH,
@@ -279,6 +189,7 @@ begin  -- architecture rtl
       clk           => clk,
       rst           => rst,
       stall_req     => '0',
+      kill_req      => '0',
       i_reg1        => ex2wb_reg1,
       i_reg2        => ex2wb_reg2,
       i_jump_target => ex2wb_jump_target,
@@ -287,6 +198,12 @@ begin  -- architecture rtl
       o_reg2        => wb2di_reg2,
       o_is_jump     => wb_is_jump,
       o_jump_target => wb_jump_target);
+
+  wb_kills_pipeline         <= wb_is_jump;
+  debug_fetched_instruction <= (others => 'X') when unsigned(fetched_instruction) = x"00000000"
+                               else fetched_instruction;
+  debug_fetched_pc <= (others => 'X') when unsigned(fetched_instruction) = x"00000000"
+                      else current_pc;
 
 end architecture rtl;
 
