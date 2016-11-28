@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-27
+-- Last update: 2016-11-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -154,6 +154,9 @@ architecture rtl of Decode is
   -- Converters of register indexes from natural unbound to 0..NB_REGISTERS-1 range
   signal o_reg1_idx   : natural range 0 to NB_REGISTERS - 1;
   signal o_reg2_idx   : natural range 0 to NB_REGISTERS - 1;
+  -- Enable writeback of register file if not stalled
+  signal rwb_reg1_we  : std_logic;
+  signal rwb_reg2_we  : std_logic;
 
   -----------------------------------------------------------------------------
   -- Internal decoder procedures
@@ -541,10 +544,10 @@ begin  -- architecture rtl
       b_idx         => rti,
       a             => rs,
       b             => rt,
-      rwb_reg1_we   => i_rwb_reg1.we,
+      rwb_reg1_we   => rwb_reg1_we,
       rwb_reg1_idx  => i_rwb_reg1.idx,
       rwb_reg1_data => i_rwb_reg1.data,
-      rwb_reg2_we   => i_rwb_reg2.we,
+      rwb_reg2_we   => rwb_reg2_we,
       rwb_reg2_idx  => i_rwb_reg2.idx,
       rwb_reg2_data => i_rwb_reg2.data
       );
@@ -611,6 +614,9 @@ begin  -- architecture rtl
                (op_code = op_lbu) or
                (op_code = op_sb) or
                (op_code = op_sw) else '0';
+
+  rwb_reg1_we <= i_rwb_reg1.we when stall_req = '0' else '0';
+  rwb_reg2_we <= i_rwb_reg2.we when stall_req = '0' else '0';
 
 end architecture rtl;
 

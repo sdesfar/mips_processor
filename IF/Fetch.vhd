@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-11-27
+-- Last update: 2016-11-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -98,7 +98,7 @@ begin  -- architecture rtl
       else
         if current_valid and l1c_data_valid = '0' then
           current_valid       <= false;
-          current_instruction <= nop_instruction;
+          -- current_instruction <= nop_instruction;
         end if;
 
         if current_valid and l1c_data_valid = '1' then
@@ -108,7 +108,7 @@ begin  -- architecture rtl
 
         if not current_valid and l1c_data_valid = '0' then
           current_valid       <= false;
-          current_instruction <= nop_instruction;
+          -- current_instruction <= nop_instruction;
         end if;
 
         if not current_valid and l1c_data_valid = '1' then

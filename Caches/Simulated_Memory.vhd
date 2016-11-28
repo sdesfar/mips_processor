@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-20
--- Last update: 2016-11-27
+-- Last update: 2016-11-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -56,22 +56,23 @@ architecture rtl of Simulated_Memory is
   -----------------------------------------------------------------------------
   type memory is array(0 to 15) of std_logic_vector(DATA_WIDTH - 1 downto 0);
   constant rom : memory := (
-    x"24030008",  --    0:      24030008        li      v1,8
-    x"00002821",  --    4:      00002821        move    a1,zero
-    x"08000005",  --    8:      08000005        j       14 <fibo_flat+0x14>
-    x"24040001",  --    c:      24040001        li      a0,1
-    x"00402021",  --   10:      00402021        move    a0,v0
-    x"2463ffff",  --   14:      2463ffff        addiu   v1,v1,-1
-    x"00a41021",  --   18:      00a41021        addu    v0,a1,a0
-    x"1460fffc",  --   1c:      1460fffc        bnez    v1,10 <fibo_flat+0x10>
-    x"00802821",  --   20:      00802821        move    a1,a0
-    x"03e00008",  --   24:      03e00008        jr      ra
-    x"00200825",  --   28:      00200825        move    at,at
-    x"00000000",
-    x"00000000",
-    x"00000000",
-    x"00000000",
-    x"00000000"
+    x"24040011",  --   0:       24040011        li      a0,17
+    x"2c820002",  --   4:       2c820002        sltiu   v0,a0,2
+    x"1440000b",  --   8:       1440000b        bnez    v0,38 <fibo_flat+0x38>
+    x"24030001",  --   c:       24030001        li      v1,1
+    x"00003021",  --  10:       00003021        move    a2,zero
+    x"08000008",  --  14:       08000008        j       20 <fibo_flat+0x20>
+    x"24050001",  --  18:       24050001        li      a1,1
+    x"00402821",  --  1c:       00402821        move    a1,v0
+    x"24630001",  --  20:       24630001        addiu   v1,v1,1
+    -- RAW dependency on instruction @0x1c on register a1
+    x"00c51021",  --  24:       00c51021        addu    v0,a2,a1
+    x"1483fffc",  --  28:       1483fffc        bne     a0,v1,1c <fibo_flat+0x1c>
+    x"00a03021",  --  2c:       00a03021        move    a2,a1
+    x"03e00008",  --  30:       03e00008        jr      ra
+    x"00200825",  --  34:       00200825        move    at,at
+    x"03e00008",  --  38:       03e00008        jr      ra
+    x"00801021"   --  3c:       00801021        move    v0,a0
     );
 
   signal instruction          : std_logic_vector(DATA_WIDTH - 1 downto 0);

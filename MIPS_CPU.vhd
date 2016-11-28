@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-27
+-- Last update: 2016-11-28
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ begin  -- architecture rtl
     port map (
       clk         => clk,
       rst         => rst,
-      stall_req   => '0',
+      stall_req   => fetch_stalls_pc,
       kill_req    => wb_kills_pipeline,
       instruction => fetched_instruction,
       next_pc     => next_pc,
@@ -164,8 +164,8 @@ begin  -- architecture rtl
     port map (
       clk           => clk,
       rst           => rst,
-      stall_req     => '0',
-      kill_req      => wb_kills_pipeline,
+      stall_req     => fetch_stalls_pc,
+      kill_req      => '0', -- wb_kills_pipeline, branch delay slot of 1
       alu_op        => alu_op,
       i_reg1        => di2ex_reg1,
       i_reg2        => di2ex_reg2,
@@ -188,7 +188,7 @@ begin  -- architecture rtl
     port map (
       clk           => clk,
       rst           => rst,
-      stall_req     => '0',
+      stall_req     => fetch_stalls_pc,
       kill_req      => '0',
       i_reg1        => ex2wb_reg1,
       i_reg2        => ex2wb_reg2,
@@ -200,10 +200,8 @@ begin  -- architecture rtl
       o_jump_target => wb_jump_target);
 
   wb_kills_pipeline         <= wb_is_jump;
-  debug_fetched_instruction <= (others => 'X') when unsigned(fetched_instruction) = x"00000000"
-                               else fetched_instruction;
-  debug_fetched_pc <= (others => 'X') when unsigned(fetched_instruction) = x"00000000"
-                      else current_pc;
+  debug_fetched_instruction <= (others => 'X') when fetch_stalls_pc = '1'else fetched_instruction;
+  debug_fetched_pc          <= (others => 'X') when fetch_stalls_pc = '1' else current_pc;
 
 end architecture rtl;
 

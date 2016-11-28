@@ -87,12 +87,6 @@ begin  -- architecture rtl
 
         reg1 <= i_reg1;
         reg2 <= i_reg2;
-      else
-        is_jump   <= '0';
-        reg1.we   <= '0';
-        reg1.data <= (others => 'X');
-        reg2.we   <= '0';
-        reg2.data <= (others => 'X');
       end if;
     end if;
   end process;
