@@ -462,7 +462,8 @@ architecture rtl of Decode is
     signal reg2_we      : out std_logic;
     signal jump_target  : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     signal jump_op      : out jump_type;
-    signal mem_op       : out memory_op_type) is
+    signal mem_op       : out memory_op_type;
+    signal mem_data     : out std_logic_vector(DATA_WIDTH - 1 downto 0)) is
   begin
     decode_error <= '0';
     reg2_we      <= '0';
@@ -489,15 +490,19 @@ architecture rtl of Decode is
       reg1_we  <= '1';
       reg1_idx <= rti;
     elsif op_code = op_sw then
-      mem_op <= storew;
-      alu_op <= add;
-      ra     <= rs;
-      rb     <= std_logic_vector(resize(immediate, DATA_WIDTH));
+      mem_op   <= storew;
+      alu_op   <= add;
+      ra       <= rs;
+      rb       <= std_logic_vector(resize(immediate, DATA_WIDTH));
+      reg1_we  <= '0';
+      mem_data <= rt;
     elsif op_code = op_sb then
-      mem_op <= store8;
-      alu_op <= add;
-      ra     <= rs;
-      rb     <= std_logic_vector(resize(immediate, DATA_WIDTH));
+      mem_op   <= store8;
+      alu_op   <= add;
+      ra       <= rs;
+      rb       <= std_logic_vector(resize(immediate, DATA_WIDTH));
+      reg1_we  <= '0';
+      mem_data <= rt;
     end if;
   end procedure do_memory;
 
@@ -574,7 +579,7 @@ begin  -- architecture rtl
                 ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
       elsif is_memory = '1' then
         do_memory(op_code, rs, rt, rti, immediate, decode_error, alu_op,
-                  ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
+                  ra, rb, o_reg1.we, o_reg1.idx, o_reg2.we, jump_target, jump_op, mem_op, mem_data);
       elsif op_code = op_lui then
         do_lui(rt, immediate, decode_error, alu_op,
                ra, rb, o_reg1.we, o_reg1_idx, o_reg2.we, jump_target, jump_op, mem_op);
