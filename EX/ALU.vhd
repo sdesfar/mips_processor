@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik (Intel)  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-16
--- Last update: 2016-11-27
+-- Last update: 2016-11-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -81,12 +81,14 @@ begin  -- architecture rtl
   process(rst, clk, stall_req)
   begin
     if rst = '1' then
-      q <= (others => '0');
+      q       <= (others => '0');
+      jump_op <= none;
     elsif kill_req = '1' and rising_edge(clk) then
       o_reg1.we     <= '0';
       o_reg1.idx    <= 0;
       o_reg2.we     <= '0';
       o_reg2.idx    <= 0;
+      jump_op       <= none;
       o_jump_target <= (others => '0');
       o_mem_data    <= (others => '0');
       o_mem_op      <= none;

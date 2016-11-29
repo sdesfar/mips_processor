@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-28
+-- Last update: 2016-11-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -623,8 +623,8 @@ begin  -- architecture rtl
                (op_code = op_sb) or
                (op_code = op_sw) else '0';
 
-  rwb_reg1_we <= i_rwb_reg1.we when stall_req = '0' else '0';
-  rwb_reg2_we <= i_rwb_reg2.we when stall_req = '0' else '0';
+  rwb_reg1_we <= i_rwb_reg1.we;
+  rwb_reg2_we <= i_rwb_reg2.we;
 
   o_src_reg1_idx <= rsi;
   o_src_reg2_idx <= rti;

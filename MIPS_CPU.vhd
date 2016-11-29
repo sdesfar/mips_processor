@@ -92,10 +92,17 @@ architecture rtl of MIPS_CPU is
   signal wb_kills_pipeline : std_logic;
 
   -- Control signals
+  --- Dependencies checkers
   signal RaW_detected : std_logic;
+  --- Pipeline stage stallers
   signal pc_stalled   : std_logic;
   signal ife_stalled  : std_logic;
-  signal di_killed    : std_logic;
+  signal di_stalled   : std_logic;
+  signal ex_stalled   : std_logic;
+  signal wb_stalled   : std_logic;
+  --- Pipeline stage output killers (ie. "nop" replacement of stage output)
+  signal di_killed : std_logic;
+  signal ex_killed : std_logic;
 
   signal debug_fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal debug_fetched_pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
@@ -149,7 +156,7 @@ begin  -- architecture rtl
     port map (
       clk            => clk,
       rst            => rst,
-      stall_req      => fetch_stalls_pc,
+      stall_req      => di_stalled,
       kill_req       => di_killed,
       instruction    => fetched_instruction,
       next_pc        => next_pc,
@@ -174,8 +181,8 @@ begin  -- architecture rtl
     port map (
       clk           => clk,
       rst           => rst,
-      stall_req     => fetch_stalls_pc,
-      kill_req      => '0',  -- wb_kills_pipeline, branch delay slot of 1
+      stall_req     => ex_stalled,
+      kill_req      => ex_killed,
       alu_op        => alu_op,
       i_reg1        => di2ex_reg1,
       i_reg2        => di2ex_reg2,
@@ -198,7 +205,7 @@ begin  -- architecture rtl
     port map (
       clk           => clk,
       rst           => rst,
-      stall_req     => fetch_stalls_pc,
+      stall_req     => wb_stalled,
       kill_req      => '0',
       i_reg1        => ex2wb_reg1,
       i_reg2        => ex2wb_reg2,
@@ -228,10 +235,16 @@ begin  -- architecture rtl
   debug_fetched_pc          <= (others => 'X') when fetch_stalls_pc = '1' else current_pc;
 
   -- Control signals
-  ife_stalled <= RaW_detected;
   pc_stalled  <= fetch_stalls_pc or ife_stalled;
-  di_killed   <= wb_kills_pipeline or RaW_detected;
+  ife_stalled <= RaW_detected;
+  di_stalled  <= fetch_stalls_pc;
+  ex_stalled  <= fetch_stalls_pc;
+  wb_stalled  <= fetch_stalls_pc;
 
+  di_killed <= not fetch_stalls_pc and (wb_kills_pipeline or RaW_detected);
+  --- ex_killed: wb_kills_pipeline and its output is forwarded to writeback as
+  --- branch delay slot of 1
+  ex_killed <= not fetch_stalls_pc and wb_kills_pipeline;
 end architecture rtl;
 
 -------------------------------------------------------------------------------
