@@ -54,7 +54,7 @@ architecture rtl of Simulated_Memory is
   -----------------------------------------------------------------------------
   -- Internal signal declarations
   -----------------------------------------------------------------------------
-  type memory is array(0 to 15) of std_logic_vector(DATA_WIDTH - 1 downto 0);
+  type memory is array(0 to 31) of std_logic_vector(DATA_WIDTH - 1 downto 0);
   constant rom : memory := (
     x"24040011",  --   0:       24040011        li      a0,17
     x"2c820002",  --   4:       2c820002        sltiu   v0,a0,2
@@ -73,7 +73,8 @@ architecture rtl of Simulated_Memory is
     x"03e00008",  --  30:       03e00008        jr      ra
     x"00200825",  --  34:       00200825        move    at,at
     x"03e00008",  --  38:       03e00008        jr      ra
-    x"00801021"   --  3c:       00801021        move    v0,a0
+    x"00801021",  --  3c:       00801021        move    v0,a0
+    others => x"00000000"
     );
 
   signal instruction          : std_logic_vector(DATA_WIDTH - 1 downto 0);
