@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-28
+-- Last update: 2016-11-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -71,6 +71,8 @@ architecture rtl of MIPS_CPU is
   signal di2ex_reg2_we       : std_logic;
   signal di2ex_reg2_idx      : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
   signal jump_pc             : std_logic;
+  signal di2ctrl_reg1_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal di2ctrl_reg2_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
   signal wb2di_reg1          : register_port_type;
   signal wb2di_reg2          : register_port_type;
   signal di2ex_jump_target   : std_logic_vector(ADDR_WIDTH - 1 downto 0);
@@ -89,6 +91,12 @@ architecture rtl of MIPS_CPU is
   signal wb_jump_target    : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal wb_kills_pipeline : std_logic;
 
+  -- Control signals
+  signal RaW_detected : std_logic;
+  signal pc_stalled   : std_logic;
+  signal ife_stalled  : std_logic;
+  signal di_killed    : std_logic;
+
   signal debug_fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal debug_fetched_pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
@@ -104,7 +112,7 @@ begin  -- architecture rtl
     port map (
       clk            => clk,
       rst            => rst,
-      stall_pc       => fetch_stalls_pc,
+      stall_pc       => pc_stalled,
       jump_pc        => wb_is_jump,
       jump_target    => wb_jump_target,
       o_current_pc   => current_pc,
@@ -118,7 +126,7 @@ begin  -- architecture rtl
     port map (
       clk             => clk,
       rst             => rst,
-      stall_req       => '0',
+      stall_req       => ife_stalled,
       kill_req        => wb_kills_pipeline,
       i_pc            => current_pc,
       i_next_pc       => next_pc,
@@ -139,21 +147,23 @@ begin  -- architecture rtl
       REG_IDX_MFLO         => 32,
       REG_IDX_MFHI         => 33)
     port map (
-      clk         => clk,
-      rst         => rst,
-      stall_req   => fetch_stalls_pc,
-      kill_req    => wb_kills_pipeline,
-      instruction => fetched_instruction,
-      next_pc     => next_pc,
-      i_rwb_reg1  => wb2di_reg1,
-      i_rwb_reg2  => wb2di_reg2,
-      alu_op      => alu_op,
-      o_reg1      => di2ex_reg1,
-      o_reg2      => di2ex_reg2,
-      jump_target => di2ex_jump_target,
-      jump_op     => di2ex_jump_op,
-      mem_data    => di2ex_mem_data,
-      mem_op      => di2ex_mem_op);
+      clk            => clk,
+      rst            => rst,
+      stall_req      => fetch_stalls_pc,
+      kill_req       => di_killed,
+      instruction    => fetched_instruction,
+      next_pc        => next_pc,
+      i_rwb_reg1     => wb2di_reg1,
+      i_rwb_reg2     => wb2di_reg2,
+      alu_op         => alu_op,
+      o_reg1         => di2ex_reg1,
+      o_reg2         => di2ex_reg2,
+      jump_target    => di2ex_jump_target,
+      jump_op        => di2ex_jump_op,
+      mem_data       => di2ex_mem_data,
+      mem_op         => di2ex_mem_op,
+      o_src_reg1_idx => di2ctrl_reg1_idx,
+      o_src_reg2_idx => di2ctrl_reg2_idx);
 
 
   ex : entity work.ALU
@@ -165,7 +175,7 @@ begin  -- architecture rtl
       clk           => clk,
       rst           => rst,
       stall_req     => fetch_stalls_pc,
-      kill_req      => '0', -- wb_kills_pipeline, branch delay slot of 1
+      kill_req      => '0',  -- wb_kills_pipeline, branch delay slot of 1
       alu_op        => alu_op,
       i_reg1        => di2ex_reg1,
       i_reg2        => di2ex_reg2,
@@ -199,9 +209,28 @@ begin  -- architecture rtl
       o_is_jump     => wb_is_jump,
       o_jump_target => wb_jump_target);
 
+  ctrl_decode_deps : entity work.Control_Decode_Dependencies
+    generic map (
+      NB_REGISTERS => NB_REGISTERS_GP + NB_REGISTERS_SPECIAL)
+    port map (
+      clk            => clk,
+      rst            => rst,
+      rsi            => di2ctrl_reg1_idx,
+      rti            => di2ctrl_reg2_idx,
+      i_ex2wb_reg1   => ex2wb_reg1,
+      i_ex2wb_reg2   => ex2wb_reg2,
+      i_wb2di_reg1   => wb2di_reg1,
+      i_wb2di_reg2   => wb2di_reg2,
+      o_raw_detected => RaW_detected);
+
   wb_kills_pipeline         <= wb_is_jump;
   debug_fetched_instruction <= (others => 'X') when fetch_stalls_pc = '1'else fetched_instruction;
   debug_fetched_pc          <= (others => 'X') when fetch_stalls_pc = '1' else current_pc;
+
+  -- Control signals
+  ife_stalled <= RaW_detected;
+  pc_stalled  <= fetch_stalls_pc or ife_stalled;
+  di_killed   <= wb_kills_pipeline or RaW_detected;
 
 end architecture rtl;
 

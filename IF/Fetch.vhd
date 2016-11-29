@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-11-28
+-- Last update: 2016-11-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -94,7 +94,6 @@ begin  -- architecture rtl
       if kill_req = '1' then
         current_instruction <= nop_instruction;
       elsif stall_req = '1' then
-        current_instruction <= nop_instruction;
       else
         if current_valid and l1c_data_valid = '0' then
           current_valid       <= false;

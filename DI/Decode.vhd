@@ -39,23 +39,26 @@ entity Decode is
     );
 
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;
-    stall_req   : in  std_logic;        -- stall current instruction
-    kill_req    : in  std_logic;        -- kill current instruction
-    instruction : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-    next_pc     : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    clk            : in  std_logic;
+    rst            : in  std_logic;
+    stall_req      : in  std_logic;     -- stall current instruction
+    kill_req       : in  std_logic;     -- kill current instruction
+    instruction    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    next_pc        : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     --- Writeback input
-    i_rwb_reg1  : in  register_port_type;
-    i_rwb_reg2  : in  register_port_type;
+    i_rwb_reg1     : in  register_port_type;
+    i_rwb_reg2     : in  register_port_type;
     --- Outputs
-    alu_op      : out alu_op_type;
-    o_reg1      : out register_port_type;
-    o_reg2      : out register_port_type;
-    jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    jump_op     : out jump_type;
-    mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    mem_op      : out memory_op_type
+    alu_op         : out alu_op_type;
+    o_reg1         : out register_port_type;
+    o_reg2         : out register_port_type;
+    jump_target    : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    jump_op        : out jump_type;
+    mem_data       : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+    mem_op         : out memory_op_type;
+    --- Control outputs
+    o_src_reg1_idx : out natural range 0 to NB_REGISTERS - 1;
+    o_src_reg2_idx : out natural range 0 to NB_REGISTERS - 1
     );
 
   constant op_rtype : std_logic_vector(5 downto 0) := "000000";
@@ -622,6 +625,9 @@ begin  -- architecture rtl
 
   rwb_reg1_we <= i_rwb_reg1.we when stall_req = '0' else '0';
   rwb_reg2_we <= i_rwb_reg2.we when stall_req = '0' else '0';
+
+  o_src_reg1_idx <= rsi;
+  o_src_reg2_idx <= rti;
 
 end architecture rtl;
 

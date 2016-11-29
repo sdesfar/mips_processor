@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-20
--- Last update: 2016-11-28
+-- Last update: 2016-11-29
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -67,6 +67,7 @@ architecture rtl of Simulated_Memory is
     x"24630001",  --  20:       24630001        addiu   v1,v1,1
     -- RAW dependency on instruction @0x1c on register a1
     x"00c51021",  --  24:       00c51021        addu    v0,a2,a1
+    -- RAW dependency on instruction @0x20 on register v1
     x"1483fffc",  --  28:       1483fffc        bne     a0,v1,1c <fibo_flat+0x1c>
     x"00a03021",  --  2c:       00a03021        move    a2,a1
     x"03e00008",  --  30:       03e00008        jr      ra
