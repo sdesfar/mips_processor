@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-20
--- Last update: 2016-11-29
+-- Last update: 2016-11-30
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -65,63 +65,77 @@ architecture rtl of Simulated_Memory is
     x"24050001",  --  18:       24050001        li      a1,1
     x"00402821",  --  1c:       00402821        move    a1,v0
     x"24630001",  --  20:       24630001        addiu   v1,v1,1
-    -- RAW dependency on instruction @0x1c on register a1
+-- RAW dependency on instruction @0x1c on register a1
     x"00c51021",  --  24:       00c51021        addu    v0,a2,a1
-    -- RAW dependency on instruction @0x20 on register v1
+-- RAW dependency on instruction @0x20 on register v1
     x"1483fffc",  --  28:       1483fffc        bne     a0,v1,1c <fibo_flat+0x1c>
     x"00a03021",  --  2c:       00a03021        move    a2,a1
     x"03e00008",  --  30:       03e00008        jr      ra
     x"00200825",  --  34:       00200825        move    at,at
     x"03e00008",  --  38:       03e00008        jr      ra
     x"00801021",  --  3c:       00801021        move    v0,a0
-    others => x"00000000"
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(0 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(1 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(2 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(3 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(4 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(5 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(6 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(7 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(8 * DATA_WIDTH / 8, 8)),
+    --std_logic_vector(to_unsigned(0, DATA_WIDTH - 8)) & std_logic_vector(to_unsigned(9 * DATA_WIDTH / 8, 8)),
+    others => (others => '0')
     );
 
-  signal instruction          : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal request_addr         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
-  signal latency_finshed_wait : boolean := false;
-  signal requested            : boolean := false;
+  signal request_addr_valid : boolean := false;
+  signal request_addr       : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal requested          : boolean := false;
+
+  signal memory_read_data : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal memory_valid     : std_logic;
 
 begin  -- architecture rtl
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
-
   process(rst, clk)
     variable wait_clk : natural := 0;
   begin
-    if rst = '0' and rising_edge(clk) then
-      if not requested and i_memory_req = '1' then
-        requested <= true;
+    if rst = '1' then
+      memory_read_data <= (others => 'X');
+      memory_valid     <= '0';
+    elsif rising_edge(clk) and MEMORY_LATENCY > 0 then
+      if i_memory_req = '1' and (not request_addr_valid or i_memory_addr /= request_addr) then
+        wait_clk           := MEMORY_LATENCY - 1;
+        request_addr       <= i_memory_addr;
+        request_addr_valid <= true;
+        requested          <= true;
         if MEMORY_LATENCY > 1 then
-          latency_finshed_wait <= false;
-          request_addr         <= i_memory_addr;
-          wait_clk             := MEMORY_LATENCY - 1;
+          memory_valid <= '0';
         else
-          latency_finshed_wait <= true;
-          request_addr         <= i_memory_addr;
-          wait_clk             := 0;
+          memory_valid <= '1';
         end if;
-      elsif requested and wait_clk > 0 then
-        wait_clk             := wait_clk - 1;
-        latency_finshed_wait <= false;
+        memory_read_data <= (others => 'X');
+      elsif i_memory_req = '1' and (not request_addr_valid or i_memory_addr = request_addr) then
+      end if;
+
+      if requested and wait_clk > 0 then
+        wait_clk := wait_clk - 1;
       end if;
 
       if requested and wait_clk = 0 then
-        requested            <= false;
-        latency_finshed_wait <= true;
+        requested <= false;
+        memory_read_data <=
+          rom(to_integer(unsigned(request_addr)) / (DATA_WIDTH / 8));
+        memory_valid <= '1';
       end if;
     end if;
-
   end process;
 
-  instruction    <= rom(to_integer(unsigned(i_memory_addr)) / 4);
-  o_memory_valid <= '1' when (MEMORY_LATENCY = 0 and i_memory_req = '1') or
-                    (latency_finshed_wait and i_memory_addr = request_addr) else '0';
-  o_memory_read_data <= instruction when (MEMORY_LATENCY = 0 and i_memory_req = '1') or
-                        (latency_finshed_wait and i_memory_addr = request_addr) else
-                        (others => 'X');
-
+  o_memory_valid     <= memory_valid     when (MEMORY_LATENCY > 0) else '1';
+  o_memory_read_data <= memory_read_data when (MEMORY_LATENCY > 1) else
+                        rom(to_integer(unsigned(request_addr)) / (DATA_WIDTH / 8)) when (MEMORY_LATENCY = 1) else
+                        rom(to_integer(unsigned(i_memory_addr)) / (DATA_WIDTH / 8));
 end architecture rtl;
 
 -------------------------------------------------------------------------------
