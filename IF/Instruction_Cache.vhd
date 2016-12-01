@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-11-27
+-- Last update: 2016-12-01
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -64,10 +64,13 @@ begin  -- architecture rtl
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
-  L1_Instr : entity work.SinglePort_Cache
+  L1_Instr : entity work.SinglePort_Associative_Cache
     generic map (
       ADDR_WIDTH => ADDR_WIDTH,
-      DATA_WIDTH => DATA_WIDTH)
+      DATA_WIDTH => DATA_WIDTH,
+      NB_DATA_PER_SET => 1,
+      NB_WAYS         => 2,
+      NB_SETS         => 4)
     port map (
       clk                => clk,
       rst                => rst,
