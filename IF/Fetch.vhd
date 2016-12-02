@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-11-29
+-- Last update: 2016-12-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -38,16 +38,19 @@ entity Fetch is
     stall_req : in std_logic;           -- stall current instruction
     kill_req  : in std_logic;           -- kill current instruction
 
-    i_pc            : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    i_next_pc       : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    i_next_next_pc  : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    o_instruction   : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    o_do_stall_pc   : out std_logic;
+    i_pc                 : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_next_pc            : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_next_next_pc       : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_instruction        : out std_logic_vector(DATA_WIDTH - 1 downto 0);
+    o_do_stall_pc        : out std_logic;
     -- L2 connections
-    o_L2c_req       : out std_logic;
-    o_L2c_addr      : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    i_L2c_read_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-    i_L2c_valid     : in  std_logic
+    o_L2c_req            : out std_logic;
+    o_L2c_addr           : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_L2c_read_data      : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    i_L2c_valid          : in  std_logic;
+    -- Debug signals
+    o_dbg_if_pc          : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_dbg_if_fetching_pc : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
     );
 
 end entity Fetch;
@@ -70,6 +73,7 @@ architecture rtl of Fetch is
   signal next_pc             : std_logic_vector(ADDR_WIDTH -1 downto 0);
   signal next_next_pc        : std_logic_vector(ADDR_WIDTH -1 downto 0);
   signal next_instruction    : std_logic_vector(DATA_WIDTH - 1 downto 0);
+
 begin  -- architecture rtl
   l1c : entity work.Instruction_Cache(rtl) port map (
     clk             => clk,
@@ -96,8 +100,8 @@ begin  -- architecture rtl
       elsif stall_req = '1' then
       else
         if current_valid and l1c_data_valid = '0' then
-          current_valid       <= false;
-          -- current_instruction <= nop_instruction;
+          current_valid <= false;
+        -- current_instruction <= nop_instruction;
         end if;
 
         if current_valid and l1c_data_valid = '1' then
@@ -106,8 +110,8 @@ begin  -- architecture rtl
         end if;
 
         if not current_valid and l1c_data_valid = '0' then
-          current_valid       <= false;
-          -- current_instruction <= nop_instruction;
+          current_valid <= false;
+        -- current_instruction <= nop_instruction;
         end if;
 
         if not current_valid and l1c_data_valid = '1' then
@@ -131,6 +135,10 @@ begin  -- architecture rtl
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
+
+  -- Debug part
+  o_dbg_if_pc          <= current_pc;
+  o_dbg_if_fetching_pc <= next_pc when l1c_data_valid = '0' else next_next_pc;
 
 end architecture rtl;
 

@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-11-29
+-- Last update: 2016-12-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -58,7 +58,10 @@ entity Decode is
     mem_op         : out memory_op_type;
     --- Control outputs
     o_src_reg1_idx : out natural range 0 to NB_REGISTERS - 1;
-    o_src_reg2_idx : out natural range 0 to NB_REGISTERS - 1
+    o_src_reg2_idx : out natural range 0 to NB_REGISTERS - 1;
+    -- Debug signal
+    i_dbg_di_pc    : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_dbg_di_pc    : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
     );
 
   constant op_rtype : std_logic_vector(5 downto 0) := "000000";
@@ -592,6 +595,18 @@ begin  -- architecture rtl
     o_reg1.idx <= o_reg1_idx;
     o_reg2.idx <= o_reg2_idx;
   end process;
+
+  debug : process(rst, clk, stall_req, kill_req)
+  begin
+    if rst = '1' then
+      o_dbg_di_pc <= (others => 'X');
+    elsif rising_edge(clk) and kill_req = '1' then
+      o_dbg_di_pc <= (others => 'X');
+    elsif rising_edge(clk) and stall_req = '1' then
+    elsif rising_edge(clk) then
+      o_dbg_di_pc <= i_dbg_di_pc;
+    end if;
+  end process debug;
 
   op_code <= instruction(31 downto 26);
   func    <= instruction(5 downto 0);

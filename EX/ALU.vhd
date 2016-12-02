@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik (Intel)  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-16
--- Last update: 2016-11-29
+-- Last update: 2016-12-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -53,7 +53,10 @@ entity ALU is
     o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     o_is_jump     : out std_logic;
     o_mem_data    : out std_logic_vector(DATA_WIDTH - 1 downto 0);
-    o_mem_op      : out memory_op_type
+    o_mem_op      : out memory_op_type;
+    -- Debug signal
+    i_dbg_ex_pc    : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_dbg_ex_pc    : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
     );
 
 end entity ALU;
@@ -131,6 +134,18 @@ begin  -- architecture rtl
       jump_op       <= i_jump_op;
     end if;
   end process;
+
+  debug : process(rst, clk, stall_req, kill_req)
+  begin
+    if rst = '1' then
+      o_dbg_ex_pc <= (others => 'X');
+    elsif rising_edge(clk) and kill_req = '1' then
+      o_dbg_ex_pc <= (others => 'X');
+    elsif rising_edge(clk) and stall_req = '1' then
+    elsif rising_edge(clk) then
+      o_dbg_ex_pc <= i_dbg_ex_pc;
+    end if;
+  end process debug;
 
   ra          <= unsigned(i_reg1.data);
   rb          <= unsigned(i_reg2.data);

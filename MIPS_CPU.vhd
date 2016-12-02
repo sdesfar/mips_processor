@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-29
+-- Last update: 2016-12-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -101,11 +101,16 @@ architecture rtl of MIPS_CPU is
   signal ex_stalled   : std_logic;
   signal wb_stalled   : std_logic;
   --- Pipeline stage output killers (ie. "nop" replacement of stage output)
-  signal di_killed : std_logic;
-  signal ex_killed : std_logic;
+  signal di_killed    : std_logic;
+  signal ex_killed    : std_logic;
+  signal wb_killed    : std_logic;
 
-  signal debug_fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal debug_fetched_pc          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  -- Debug signals
+  signal dbg_if_pc       : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal dbg_di_pc       : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal dbg_ex_pc       : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal dbg_wb_pc       : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  signal dbg_commited_pc : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
 begin  -- architecture rtl
 
@@ -131,19 +136,21 @@ begin  -- architecture rtl
       ADDR_WIDTH => ADDR_WIDTH,
       DATA_WIDTH => DATA_WIDTH)
     port map (
-      clk             => clk,
-      rst             => rst,
-      stall_req       => ife_stalled,
-      kill_req        => wb_kills_pipeline,
-      i_pc            => current_pc,
-      i_next_pc       => next_pc,
-      i_next_next_pc  => next_next_pc,
-      o_instruction   => fetched_instruction,
-      o_do_stall_pc   => fetch_stalls_pc,
-      o_L2c_req       => o_L2c_req,
-      o_L2c_addr      => o_L2c_addr,
-      i_L2c_read_data => i_L2c_read_data,
-      i_L2c_valid     => i_L2c_valid);
+      clk                  => clk,
+      rst                  => rst,
+      stall_req            => ife_stalled,
+      kill_req             => wb_kills_pipeline,
+      i_pc                 => current_pc,
+      i_next_pc            => next_pc,
+      i_next_next_pc       => next_next_pc,
+      o_instruction        => fetched_instruction,
+      o_do_stall_pc        => fetch_stalls_pc,
+      o_L2c_req            => o_L2c_req,
+      o_L2c_addr           => o_L2c_addr,
+      i_L2c_read_data      => i_L2c_read_data,
+      i_L2c_valid          => i_L2c_valid,
+      o_dbg_if_fetching_pc => dbg_if_pc,
+      o_dbg_if_pc          => dbg_di_pc);
 
   di : entity work.Decode
     generic map (
@@ -170,8 +177,9 @@ begin  -- architecture rtl
       mem_data       => di2ex_mem_data,
       mem_op         => di2ex_mem_op,
       o_src_reg1_idx => di2ctrl_reg1_idx,
-      o_src_reg2_idx => di2ctrl_reg2_idx);
-
+      o_src_reg2_idx => di2ctrl_reg2_idx,
+      i_dbg_di_pc    => dbg_di_pc,
+      o_dbg_di_pc    => dbg_ex_pc);
 
   ex : entity work.ALU
     generic map (
@@ -195,7 +203,9 @@ begin  -- architecture rtl
       o_jump_target => ex2wb_jump_target,
       o_is_jump     => ex2wb_is_jump,
       o_mem_data    => ex2wb_mem_data,
-      o_mem_op      => ex2wb_mem_op);
+      o_mem_op      => ex2wb_mem_op,
+      i_dbg_ex_pc   => dbg_ex_pc,
+      o_dbg_ex_pc   => dbg_wb_pc);
 
   wb : entity work.Writeback
     generic map (
@@ -206,7 +216,7 @@ begin  -- architecture rtl
       clk           => clk,
       rst           => rst,
       stall_req     => wb_stalled,
-      kill_req      => '0',
+      kill_req      => wb_killed,
       i_reg1        => ex2wb_reg1,
       i_reg2        => ex2wb_reg2,
       i_jump_target => ex2wb_jump_target,
@@ -214,7 +224,9 @@ begin  -- architecture rtl
       o_reg1        => wb2di_reg1,
       o_reg2        => wb2di_reg2,
       o_is_jump     => wb_is_jump,
-      o_jump_target => wb_jump_target);
+      o_jump_target => wb_jump_target,
+      i_dbg_wb_pc   => dbg_wb_pc,
+      o_dbg_wb_pc   => dbg_commited_pc);
 
   ctrl_decode_deps : entity work.Control_Decode_Dependencies
     generic map (
@@ -231,8 +243,6 @@ begin  -- architecture rtl
       o_raw_detected => RaW_detected);
 
   wb_kills_pipeline         <= wb_is_jump;
-  debug_fetched_instruction <= (others => 'X') when fetch_stalls_pc = '1'else fetched_instruction;
-  debug_fetched_pc          <= (others => 'X') when fetch_stalls_pc = '1' else current_pc;
 
   -- Control signals
   pc_stalled  <= fetch_stalls_pc or ife_stalled;
@@ -245,6 +255,7 @@ begin  -- architecture rtl
   --- ex_killed: wb_kills_pipeline and its output is forwarded to writeback as
   --- branch delay slot of 1
   ex_killed <= not fetch_stalls_pc and wb_kills_pipeline;
+  wb_killed <= '0'; -- branch delay slot of 1
 end architecture rtl;
 
 -------------------------------------------------------------------------------

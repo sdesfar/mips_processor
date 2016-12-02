@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-11-27
+-- Last update: 2016-12-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -57,6 +57,9 @@ architecture rtl of Fetch_tb is
   signal i_L2c_read_data : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal i_L2c_valid     : std_logic;
 
+  -- Debug signals
+  signal dbg_if_pc : std_logic_vector(ADDR_WIDTH - 1 downto 0);
+
 begin  -- architecture rtl
 
   -- component instantiation
@@ -65,19 +68,20 @@ begin  -- architecture rtl
       ADDR_WIDTH => ADDR_WIDTH,
       DATA_WIDTH => DATA_WIDTH)
     port map (
-      clk             => Clk,
-      rst             => Rst,
-      stall_req       => '0',
-      kill_req        => '0',
-      i_pc            => pc,
-      i_next_pc       => next_pc,
-      i_next_next_pc  => next_next_pc,
-      o_instruction   => instruction,
-      o_do_stall_pc   => stall_pc,
-      o_L2c_req       => o_L2c_req,
-      o_L2c_addr      => o_L2c_addr,
-      i_L2c_read_data => i_L2c_read_data,
-      i_L2c_valid     => i_L2c_valid);
+      clk                  => Clk,
+      rst                  => Rst,
+      stall_req            => '0',
+      kill_req             => '0',
+      i_pc                 => pc,
+      i_next_pc            => next_pc,
+      i_next_next_pc       => next_next_pc,
+      o_instruction        => instruction,
+      o_do_stall_pc        => stall_pc,
+      o_L2c_req            => o_L2c_req,
+      o_L2c_addr           => o_L2c_addr,
+      i_L2c_read_data      => i_L2c_read_data,
+      i_L2c_valid          => i_L2c_valid,
+      o_dbg_if_fetching_pc => dbg_if_pc);
 
   Simulated_Memory_1 : entity work.Simulated_Memory
     generic map (

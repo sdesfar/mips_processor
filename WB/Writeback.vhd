@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-16
--- Last update: 2016-11-16
+-- Last update: 2016-12-02
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -47,7 +47,10 @@ entity Writeback is
     o_reg1        : out register_port_type;
     o_reg2        : out register_port_type;
     o_is_jump     : out std_logic;
-    o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
+    o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    -- Debug signal
+    i_dbg_wb_pc    : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_dbg_wb_pc    : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
     );
 
 end entity Writeback;
@@ -90,6 +93,18 @@ begin  -- architecture rtl
       end if;
     end if;
   end process;
+
+  debug : process(rst, clk, stall_req, kill_req)
+  begin
+    if rst = '1' then
+      o_dbg_wb_pc <= (others => 'X');
+    elsif rising_edge(clk) and kill_req = '1' then
+      o_dbg_wb_pc <= (others => 'X');
+    elsif rising_edge(clk) and stall_req = '1' then
+    elsif rising_edge(clk) then
+      o_dbg_wb_pc <= i_dbg_wb_pc;
+    end if;
+  end process debug;
 
   o_reg1        <= reg1;
   o_reg2        <= reg2;
