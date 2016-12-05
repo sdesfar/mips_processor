@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-12-02
+-- Last update: 2016-12-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -41,6 +41,7 @@ entity Fetch is
     i_pc                 : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     i_next_pc            : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     i_next_next_pc       : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_pc_instr           : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     o_instruction        : out std_logic_vector(DATA_WIDTH - 1 downto 0);
     o_do_stall_pc        : out std_logic;
     -- L2 connections
@@ -57,89 +58,83 @@ end entity Fetch;
 
 -------------------------------------------------------------------------------
 
-architecture rtl of Fetch is
+architecture rtl3 of Fetch is
+  subtype addr_t is std_logic_vector(ADDR_WIDTH - 1 downto 0);
+  subtype data_t is std_logic_vector(DATA_WIDTH - 1 downto 0);
 
-  -----------------------------------------------------------------------------
-  -- Internal signal declarations
-  -----------------------------------------------------------------------------
   constant nop_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0) := (others => '0');
-  signal l1c_addr          : std_logic_vector(ADDR_WIDTH - 1 downto 0);
-  signal l1c_data          : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal l1c_data_valid    : std_logic;
 
-  signal current_pc          : std_logic_vector(ADDR_WIDTH -1 downto 0);
-  signal current_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
-  signal current_valid       : boolean;
-  signal next_pc             : std_logic_vector(ADDR_WIDTH -1 downto 0);
-  signal next_next_pc        : std_logic_vector(ADDR_WIDTH -1 downto 0);
-  signal next_instruction    : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  --- Control signal
+  signal kill_next_pc : std_logic;
 
-begin  -- architecture rtl
-  l1c : entity work.Instruction_Cache(rtl) port map (
-    clk             => clk,
-    rst             => rst,
-    -- cache query and response
-    addr            => l1c_addr,
-    data            => l1c_data,
-    data_valid      => l1c_data_valid,
-    -- signal carry over L2 connections
-    o_L2c_req       => o_L2c_req,
-    o_L2c_addr      => o_L2c_addr,
-    i_L2c_read_data => i_L2c_read_data,
-    i_L2c_valid     => i_L2c_valid
-    );
+  --- Signals from instruction provider
+  signal iprovider_pc           : addr_t;
+  signal iprovider_data         : data_t;
+  signal iprovider_data_valid   : std_logic;
+  signal iprovider_do_step_pc   : std_logic;
+  signal dbg_iprovider_fetching : addr_t;
 
-  process(clk, rst)
+  --- Outgoing to next pipeline stage instruction
+  signal out_pc   : addr_t;
+  signal out_data : data_t;
+
+begin
+  iprovider : entity work.Instruction_Provider
+    generic map (
+      ADDR_WIDTH => ADDR_WIDTH,
+      DATA_WIDTH => DATA_WIDTH)
+    port map (
+      clk             => clk,
+      rst             => rst,
+      kill_req        => kill_next_pc,
+      stall_req       => stall_req,
+      i_next_pc       => i_pc,
+      i_next_next_pc  => i_next_pc,
+      o_pc            => iprovider_pc,
+      o_data          => iprovider_data,
+      o_valid         => iprovider_data_valid,
+      o_do_step_pc    => iprovider_do_step_pc,
+      o_L2c_req       => o_L2c_req,
+      o_L2c_addr      => o_L2c_addr,
+      i_L2c_read_data => i_L2c_read_data,
+      i_L2c_valid     => i_L2c_valid,
+      o_dbg_fetching  => dbg_iprovider_fetching);
+
+  --- PC stepper
+  o_do_stall_pc <= '1' when iprovider_do_step_pc = '0' else '0';
+
+  --- PC jump handler
+  kill_next_pc <= kill_req;
+
+  --- Decode input provider
+  o_instruction <= out_data;
+  o_pc_instr    <= out_pc;
+
+  fetch_outputs_latcher : process(clk, rst, kill_req, stall_req)
   begin
     if rst = '1' then
-      current_valid       <= false;
-      current_instruction <= (others => 'X');
-    elsif rising_edge(clk) then
+      out_pc   <= (others => 'X');
+      out_data <= (others => 'X');
+    end if;
+    if rst = '0' and rising_edge(clk) then
       if kill_req = '1' then
-        current_instruction <= nop_instruction;
+        out_pc   <= (others => 'X');
+        out_data <= nop_instruction;
       elsif stall_req = '1' then
       else
-        if current_valid and l1c_data_valid = '0' then
-          current_valid <= false;
-        -- current_instruction <= nop_instruction;
+        if iprovider_data_valid = '1' then
+          out_pc   <= iprovider_pc;
+          out_data <= iprovider_data;
+        else
+          out_pc   <= (others => 'X');
+          out_data <= nop_instruction;
         end if;
-
-        if current_valid and l1c_data_valid = '1' then
-          current_valid       <= true;
-          current_instruction <= l1c_data;
-        end if;
-
-        if not current_valid and l1c_data_valid = '0' then
-          current_valid <= false;
-        -- current_instruction <= nop_instruction;
-        end if;
-
-        if not current_valid and l1c_data_valid = '1' then
-          current_valid       <= true;
-          current_instruction <= l1c_data;
-        end if;
-
       end if;
     end if;
+  end process fetch_outputs_latcher;
 
-  end process;
+  --- Debug signals
+  o_dbg_if_pc          <= out_pc;
+  o_dbg_if_fetching_pc <= dbg_iprovider_fetching;
 
-  o_instruction <= current_instruction;
-  current_pc    <= i_pc;
-  next_pc       <= i_next_pc;
-  next_next_pc  <= i_next_next_pc;
-  l1c_addr      <= next_pc when l1c_data_valid = '0' else next_next_pc;
-
-  o_do_stall_pc <= '0' when l1c_data_valid = '1' else '1';
-
-  -----------------------------------------------------------------------------
-  -- Component instantiations
-  -----------------------------------------------------------------------------
-
-  -- Debug part
-  o_dbg_if_pc          <= current_pc;
-  o_dbg_if_fetching_pc <= next_pc when l1c_data_valid = '0' else next_next_pc;
-
-end architecture rtl;
-
--------------------------------------------------------------------------------
+end architecture rtl3;

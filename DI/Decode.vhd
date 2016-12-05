@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-12
--- Last update: 2016-12-02
+-- Last update: 2016-12-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ entity Decode is
     stall_req      : in  std_logic;     -- stall current instruction
     kill_req       : in  std_logic;     -- kill current instruction
     instruction    : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-    next_pc        : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    pc             : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     --- Writeback input
     i_rwb_reg1     : in  register_port_type;
     i_rwb_reg2     : in  register_port_type;
@@ -149,6 +149,7 @@ architecture rtl of Decode is
   signal rs           : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal rt           : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal immediate    : signed(DATA_WIDTH / 2 - 1 downto 0);
+  signal next_pc      : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal pc_displace  : std_logic_vector(25 downto 0);
   signal rtype        : std_logic;
   signal decode_error : std_logic;
@@ -562,6 +563,8 @@ begin  -- architecture rtl
       rwb_reg2_idx  => i_rwb_reg2.idx,
       rwb_reg2_data => i_rwb_reg2.data
       );
+
+  next_pc <= std_logic_vector(unsigned(pc) + 4);
 
   process(rst, clk, stall_req, is_branch, is_immediate, is_rtype, is_jump, o_reg1_idx, o_reg2_idx)
   begin

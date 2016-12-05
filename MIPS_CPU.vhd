@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-12-02
+-- Last update: 2016-12-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -60,6 +60,7 @@ architecture rtl of MIPS_CPU is
   signal next_next_pc        : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal jump_target         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal fetched_instruction : std_logic_vector(DATA_WIDTH - 1 downto 0);
+  signal fetched_pc          : std_logic_vector(DATA_WIDTH - 1 downto 0);
   signal fetch_stalls_pc     : std_logic;
   signal alu_op              : alu_op_type;
   signal di2ex_ra            : std_logic_vector(DATA_WIDTH - 1 downto 0);
@@ -131,7 +132,7 @@ begin  -- architecture rtl
       o_next_pc      => next_pc,
       o_next_next_pc => next_next_pc);
 
-  ife : entity work.Fetch
+  ife : entity work.Fetch(rtl3)
     generic map (
       ADDR_WIDTH => ADDR_WIDTH,
       DATA_WIDTH => DATA_WIDTH)
@@ -139,11 +140,12 @@ begin  -- architecture rtl
       clk                  => clk,
       rst                  => rst,
       stall_req            => ife_stalled,
-      kill_req             => wb_kills_pipeline,
+      kill_req             => wb_is_jump,
       i_pc                 => current_pc,
       i_next_pc            => next_pc,
       i_next_next_pc       => next_next_pc,
       o_instruction        => fetched_instruction,
+      o_pc_instr           => fetched_pc,
       o_do_stall_pc        => fetch_stalls_pc,
       o_L2c_req            => o_L2c_req,
       o_L2c_addr           => o_L2c_addr,
@@ -166,7 +168,7 @@ begin  -- architecture rtl
       stall_req      => di_stalled,
       kill_req       => di_killed,
       instruction    => fetched_instruction,
-      next_pc        => next_pc,
+      pc             => fetched_pc,
       i_rwb_reg1     => wb2di_reg1,
       i_rwb_reg2     => wb2di_reg2,
       alu_op         => alu_op,
@@ -247,17 +249,15 @@ begin  -- architecture rtl
   wb_kills_pipeline         <= wb_is_jump;
 
   -- Control signals
-  pc_stalled  <= fetch_stalls_pc or ife_stalled;
+  pc_stalled  <= fetch_stalls_pc;
   ife_stalled <= RaW_detected;
-  di_stalled  <= fetch_stalls_pc;
-  ex_stalled  <= fetch_stalls_pc;
-  wb_stalled  <= fetch_stalls_pc;
+  di_stalled  <= '0';
+  ex_stalled  <= '0';
+  wb_stalled  <= '0';
 
-  di_killed <= not fetch_stalls_pc and (wb_kills_pipeline or RaW_detected);
-  --- ex_killed: wb_kills_pipeline and its output is forwarded to writeback as
-  --- branch delay slot of 1
-  ex_killed <= not fetch_stalls_pc and wb_kills_pipeline;
-  wb_killed <= '0'; -- branch delay slot of 1
+  di_killed <= wb_kills_pipeline or RaW_detected;
+  ex_killed <= wb_kills_pipeline;
+  wb_killed <= wb_kills_pipeline;
 end architecture rtl;
 
 -------------------------------------------------------------------------------
