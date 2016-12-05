@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-16
--- Last update: 2016-12-02
+-- Last update: 2016-12-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -49,8 +49,8 @@ entity Writeback is
     o_is_jump     : out std_logic;
     o_jump_target : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
     -- Debug signal
-    i_dbg_wb_pc    : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    o_dbg_wb_pc    : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
+    i_dbg_wb_pc   : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    o_dbg_wb_pc   : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
     );
 
 end entity Writeback;
@@ -64,6 +64,7 @@ architecture rtl of Writeback is
   -----------------------------------------------------------------------------
   signal reg1        : register_port_type;
   signal reg2        : register_port_type;
+  signal is_nop      : boolean;
   signal is_jump     : std_logic;
   signal jump_target : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
@@ -72,6 +73,8 @@ begin  -- architecture rtl
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
+
+  is_nop <= true when i_reg1.we = '0' and i_reg2.we = '0' and i_is_jump = '0' else false;
 
   process(rst, clk, stall_req)
   begin
@@ -84,13 +87,39 @@ begin  -- architecture rtl
         reg1.we <= '0';
         reg2.we <= '0';
         is_jump <= '0';
+        o_is_jump <= '0';
+        o_jump_target <= (others => 'X');
       elsif stall_req = '0' then
-        is_jump     <= i_is_jump;
-        jump_target <= i_jump_target;
-
-        reg1 <= i_reg1;
-        reg2 <= i_reg2;
+        --- Branch delay slot of 1 : output i_is_jump and i_jump_target is set
+        --- on o_is_jump and o_jump_target only with another no-NOP instruction.
+        if is_nop then
+          if is_jump = '1' then
+          -- Still no real instruction, retain the jump
+          else
+          -- No jump retained and a nop, do usual latching
+            o_is_jump     <= is_jump;
+            o_jump_target <= jump_target;
+            is_jump       <= i_is_jump;
+            jump_target   <= i_jump_target;
+          end if;
+        else
+          if is_jump = '1' then
+            -- Transfer the jump and the writeback instruction together
+            o_is_jump     <= is_jump;
+            o_jump_target <= jump_target;
+            is_jump       <= i_is_jump;
+            jump_target   <= i_jump_target;
+          else
+            o_is_jump     <= is_jump;
+            o_jump_target <= jump_target;
+            is_jump       <= i_is_jump;
+            jump_target   <= i_jump_target;
+          end if;
+        end if;
       end if;
+
+      reg1 <= i_reg1;
+      reg2 <= i_reg2;
     end if;
   end process;
 
@@ -106,10 +135,10 @@ begin  -- architecture rtl
     end if;
   end process debug;
 
-  o_reg1        <= reg1;
-  o_reg2        <= reg2;
-  o_is_jump     <= is_jump;
-  o_jump_target <= jump_target when is_jump = '1' else (others => 'X');
+  o_reg1 <= reg1;
+  o_reg2 <= reg2;
+-- o_is_jump     <= is_jump;
+-- o_jump_target <= jump_target when is_jump = '1' else (others => 'X');
 
 end architecture rtl;
 
