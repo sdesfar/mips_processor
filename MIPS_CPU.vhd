@@ -37,13 +37,19 @@ entity MIPS_CPU is
     );
 
   port (
-    clk             : in  std_logic;
-    rst             : in  std_logic;
+    clk                      : in  std_logic;
+    rst                      : in  std_logic;
     -- L2 cache lines
-    o_L2c_req       : out std_logic;
-    o_L2c_addr      : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
-    i_L2c_read_data : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
-    i_L2c_valid     : in  std_logic
+    o_L2c_req                : out std_logic;
+    o_L2c_addr               : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    i_L2c_read_data          : in  std_logic_vector(DATA_WIDTH - 1 downto 0);
+    i_L2c_valid              : in  std_logic;
+    -- Debug signals
+    signal o_dbg_if_pc       : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    signal o_dbg_di_pc       : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    signal o_dbg_ex_pc       : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    signal o_dbg_wb_pc       : out std_logic_vector(ADDR_WIDTH - 1 downto 0);
+    signal o_dbg_commited_pc : out std_logic_vector(ADDR_WIDTH - 1 downto 0)
     );
 
 end entity MIPS_CPU;
@@ -258,6 +264,14 @@ begin  -- architecture rtl
   di_killed <= wb_kills_pipeline or RaW_detected;
   ex_killed <= wb_kills_pipeline;
   wb_killed <= wb_kills_pipeline;
+
+  -- Debug signal
+  o_dbg_if_pc       <= dbg_if_pc;
+  o_dbg_di_pc       <= dbg_di_pc;
+  o_dbg_ex_pc       <= dbg_ex_pc;
+  o_dbg_wb_pc       <= dbg_wb_pc;
+  o_dbg_commited_pc <= dbg_commited_pc;
+
 end architecture rtl;
 
 -------------------------------------------------------------------------------
