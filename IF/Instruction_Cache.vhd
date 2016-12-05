@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-10
--- Last update: 2016-12-01
+-- Last update: 2016-12-05
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -28,8 +28,8 @@ use ieee.numeric_std.all;
 entity Instruction_Cache is
 
   generic (
-    ADDR_WIDTH : integer := 32;
-    DATA_WIDTH : integer := 32
+    ADDR_WIDTH : integer;
+    DATA_WIDTH : integer
     );
 
   port (
@@ -69,7 +69,7 @@ begin  -- architecture rtl
       ADDR_WIDTH => ADDR_WIDTH,
       DATA_WIDTH => DATA_WIDTH,
       NB_DATA_PER_SET => 1,
-      NB_WAYS         => 2,
+      NB_WAYS         => 4,
       NB_SETS         => 4)
     port map (
       clk                => clk,
