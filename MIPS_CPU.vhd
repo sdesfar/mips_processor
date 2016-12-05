@@ -236,6 +236,8 @@ begin  -- architecture rtl
       rst            => rst,
       rsi            => di2ctrl_reg1_idx,
       rti            => di2ctrl_reg2_idx,
+      i_di2ex_reg1   => di2ex_reg1,
+      i_di2ex_reg2   => di2ex_reg2,
       i_ex2wb_reg1   => ex2wb_reg1,
       i_ex2wb_reg2   => ex2wb_reg2,
       i_wb2di_reg1   => wb2di_reg1,
