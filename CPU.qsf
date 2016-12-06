@@ -58,27 +58,19 @@ set_global_assignment -name EDA_TIME_SCALE "1 ns" -section_id eda_simulation
 set_global_assignment -name VHDL_FILE MIPS_CPU.vhd
 set_global_assignment -name VHDL_FILE DI/Decode.vhd
 set_global_assignment -name VHDL_FILE DI/RegisterFile.vhd
-set_global_assignment -name VHDL_FILE MIPS_CPU_tb.vhd
 set_global_assignment -name VHDL_FILE ProgramCounter/PC_Register.vhd
 set_global_assignment -name VHDL_FILE ProgramCounter/PC_Adder.vhd
-set_global_assignment -name VHDL_FILE IF/Fetch_tb.vhd
 set_global_assignment -name VHDL_FILE cpu_defs.vhd
 set_global_assignment -name VHDL_FILE EX/ALU.vhd
 set_global_assignment -name VHDL_FILE WB/Writeback.vhd
 set_global_assignment -name VHDL_FILE Caches/DualPort_Cache.vhd
-set_global_assignment -name VHDL_FILE Caches/DualPort_Cache_tb.vhd
 set_global_assignment -name VHDL_FILE Caches/SinglePort_Cache.vhd
-set_global_assignment -name VHDL_FILE Caches/SinglePort_Cache_tb.vhd
 set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
 set_global_assignment -name SMART_RECOMPILE ON
-set_global_assignment -name VHDL_FILE Caches/Simulated_Memory.vhd
-set_global_assignment -name VHDL_FILE Caches/Simulated_Memory_tb.vhd
 set_global_assignment -name VHDL_FILE Control/Control_Decode_Dependencies.vhd
 set_global_assignment -name VHDL_FILE Caches/SinglePort_Associative_Cache.vhd
-set_global_assignment -name VHDL_FILE Caches/SinglePort_Associative_Cache_tb.vhd
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
-set_global_assignment -name VHDL_FILE IF/Instruction_Provider_tb.vhd
 set_global_assignment -name VHDL_FILE IF/Instruction_Provider.vhd
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

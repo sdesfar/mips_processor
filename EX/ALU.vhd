@@ -81,7 +81,7 @@ begin  -- architecture rtl
   -- Component instantiations
   -----------------------------------------------------------------------------
 
-  process(rst, clk, stall_req)
+  process(rst, clk, kill_req, stall_req)
   begin
     if rst = '1' then
       q       <= (others => '0');

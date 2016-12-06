@@ -566,7 +566,7 @@ begin  -- architecture rtl
 
   next_pc <= std_logic_vector(unsigned(pc) + 4);
 
-  process(rst, clk, stall_req, is_branch, is_immediate, is_rtype, is_jump, o_reg1_idx, o_reg2_idx)
+  process(rst, clk, stall_req, kill_req, is_branch, is_immediate, is_rtype, is_jump, o_reg1_idx, o_reg2_idx)
   begin
     if rst = '1' then
       do_reset(decode_error, alu_op, ra, rb, jump_target, jump_op, mem_op);

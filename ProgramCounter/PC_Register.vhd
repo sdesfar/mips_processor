@@ -63,7 +63,6 @@ architecture rtl of PC_Register is
   -- Internal signal declarations
   -----------------------------------------------------------------------------
   signal pc              : std_logic_vector(ADDR_WIDTH - 1 downto 0);
-  signal pc_stepped      : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal pc_next         : std_logic_vector(ADDR_WIDTH - 1 downto 0);
   signal pc_next_stepped : std_logic_vector(ADDR_WIDTH - 1 downto 0);
 
@@ -73,14 +72,6 @@ begin  -- architecture rtl
   -----------------------------------------------------------------------------
   -- Component instantiations
   -----------------------------------------------------------------------------
-  pc_add4 : PC_Adder
-    generic map (
-      ADDR_WIDTH => ADDR_WIDTH,
-      STEP       => STEP)
-    port map (
-      current_pc => pc,
-      next_pc    => pc_stepped);
-
   pc_next_add4 : PC_Adder
     generic map (
       ADDR_WIDTH => ADDR_WIDTH,
