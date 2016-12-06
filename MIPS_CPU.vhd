@@ -174,18 +174,18 @@ begin  -- architecture rtl
       rst            => rst,
       stall_req      => di_stalled,
       kill_req       => di_killed,
-      instruction    => fetched_instruction,
-      pc             => fetched_pc,
+      i_instruction  => fetched_instruction,
+      i_pc           => fetched_pc,
       i_rwb_reg1     => wb2di_reg1,
       i_rwb_reg2     => wb2di_reg2,
-      alu_op         => alu_op,
+      o_alu_op       => alu_op,
       o_reg1         => di2ex_reg1,
       o_reg2         => di2ex_reg2,
-      jump_target    => di2ex_jump_target,
-      jump_op        => di2ex_jump_op,
-      mem_data       => di2ex_mem_data,
-      mem_op         => di2ex_mem_op,
-      o_divide_0    => di2ex_divide_0,
+      o_jump_target  => di2ex_jump_target,
+      o_jump_op      => di2ex_jump_op,
+      o_mem_data     => di2ex_mem_data,
+      o_mem_op       => di2ex_mem_op,
+      o_divide_0     => di2ex_divide_0,
       o_src_reg1_idx => di2ctrl_reg1_idx,
       o_src_reg2_idx => di2ctrl_reg2_idx,
       i_dbg_di_pc    => dbg_di_pc,
@@ -255,7 +255,7 @@ begin  -- architecture rtl
       i_wb2di_reg2   => wb2di_reg2,
       o_raw_detected => RaW_detected);
 
-  wb_kills_pipeline         <= wb_is_jump;
+  wb_kills_pipeline <= wb_is_jump;
 
   -- Control signals
   pc_stalled  <= fetch_stalls_pc;
