@@ -33,8 +33,8 @@ entity ALU_Divider is
   port (
     i_ra       : in  unsigned(DATA_WIDTH - 1 downto 0);
     i_rb       : in  unsigned(DATA_WIDTH - 1 downto 0);
-    o_q        : out unsigned(DATA_WIDTH * 2 - 1 downto 0);
-    o_div_by_0 : out std_logic
+    i_div_by_0 : in  std_logic;
+    o_q        : out unsigned(DATA_WIDTH * 2 - 1 downto 0)
     );
 end entity ALU_Divider;
 
@@ -47,24 +47,26 @@ architecture rtl of ALU_Divider is
   constant r_unknown : unsigned(DATA_WIDTH - 1 downto 0) := (others => 'X');
   signal quotient    : unsigned(DATA_WIDTH - 1 downto 0);
   signal remain      : unsigned(DATA_WIDTH - 1 downto 0);
-  signal div_by_0    : boolean                           := true;
+  signal div_by_0    : boolean;
 
-  function get_quotient(signal a : in unsigned(DATA_WIDTH - 1 downto 0);
-                        signal b : in unsigned(DATA_WIDTH - 1 downto 0))
+  function get_quotient(signal a        : in unsigned(DATA_WIDTH - 1 downto 0);
+                        signal b        : in unsigned(DATA_WIDTH - 1 downto 0);
+                        signal div_by_0 : in boolean)
     return unsigned is
   begin
-    if b = to_unsigned(0, DATA_WIDTH) then
+    if div_by_0 then
       return to_unsigned(0, DATA_WIDTH);
     else
       return a / b;
     end if;
   end function get_quotient;
 
-  function get_remain(signal a : in unsigned(DATA_WIDTH - 1 downto 0);
-                      signal b : in unsigned(DATA_WIDTH - 1 downto 0))
+  function get_remain(signal a        : in unsigned(DATA_WIDTH - 1 downto 0);
+                      signal b        : in unsigned(DATA_WIDTH - 1 downto 0);
+                      signal div_by_0 : in boolean)
     return unsigned is
   begin
-    if b = to_unsigned(0, DATA_WIDTH) then
+    if div_by_0 then
       return to_unsigned(0, DATA_WIDTH);
     else
       return a rem b;
@@ -73,12 +75,11 @@ architecture rtl of ALU_Divider is
 
 begin  -- architecture rtl
 
-  div_by_0 <= true when i_rb = to_unsigned(0, DATA_WIDTH) else false;
-  remain   <= get_remain(i_ra, i_rb);
-  quotient <= get_quotient(i_ra, i_rb);
+  div_by_0 <= i_div_by_0 = '1';
+  remain   <= get_remain(i_ra, i_rb, div_by_0);
+  quotient <= get_quotient(i_ra, i_rb, div_by_0);
 
-  o_q        <= remain & quotient when not div_by_0;
-  o_div_by_0 <= '1'               when div_by_0 else '0';
+  o_q <= remain & quotient;
 
 end architecture rtl;
 

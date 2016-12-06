@@ -43,6 +43,7 @@ entity ALU is
     alu_op        : in  alu_op_type;
     i_reg1        : in  register_port_type;
     i_reg2        : in  register_port_type;
+    i_divide_0    : in  std_logic; -- if set, a division attempt will be a X/0
     -- Carry-over signals
     i_jump_target : in  std_logic_vector(ADDR_WIDTH - 1 downto 0);
     i_jump_op     : in  jump_type;
@@ -120,9 +121,10 @@ begin  -- architecture rtl
     generic map (
       DATA_WIDTH => DATA_WIDTH)
     port map (
-      i_ra => ra,
-      i_rb => rb,
-      o_q  => divider_q);
+      i_ra       => ra,
+      i_rb       => rb,
+      i_div_by_0 => i_divide_0,
+      o_q        => divider_q);
 
   do_log_and : entity work.ALU_Log_And
     generic map (

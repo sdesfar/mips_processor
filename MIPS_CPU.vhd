@@ -6,7 +6,7 @@
 -- Author     : Robert Jarzmik  <robert.jarzmik@free.fr>
 -- Company    : 
 -- Created    : 2016-11-11
--- Last update: 2016-12-05
+-- Last update: 2016-12-06
 -- Platform   : 
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -77,6 +77,7 @@ architecture rtl of MIPS_CPU is
   signal di2ex_reg2          : register_port_type;
   signal di2ex_reg2_we       : std_logic;
   signal di2ex_reg2_idx      : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
+  signal di2ex_divide_0      : std_logic;
   signal jump_pc             : std_logic;
   signal di2ctrl_reg1_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
   signal di2ctrl_reg2_idx    : natural range 0 to NB_REGISTERS_GP + NB_REGISTERS_SPECIAL - 1;
@@ -184,6 +185,7 @@ begin  -- architecture rtl
       jump_op        => di2ex_jump_op,
       mem_data       => di2ex_mem_data,
       mem_op         => di2ex_mem_op,
+      o_divide_0    => di2ex_divide_0,
       o_src_reg1_idx => di2ctrl_reg1_idx,
       o_src_reg2_idx => di2ctrl_reg2_idx,
       i_dbg_di_pc    => dbg_di_pc,
@@ -206,6 +208,7 @@ begin  -- architecture rtl
       i_jump_op     => di2ex_jump_op,
       i_mem_data    => di2ex_mem_data,
       i_mem_op      => di2ex_mem_op,
+      i_divide_0    => di2ex_divide_0,
       o_reg1        => ex2wb_reg1,
       o_reg2        => ex2wb_reg2,
       o_jump_target => ex2wb_jump_target,
